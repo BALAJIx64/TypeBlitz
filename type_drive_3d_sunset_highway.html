@@ -1,0 +1,2515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TYPE DRIVE 3D: SUNSET HIGHWAY</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #120724;
+      font-family: 'Inter', sans-serif;
+    }
+    .font-racing {
+      font-family: 'Chakra Petch', sans-serif;
+    }
+    .font-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .sunset-glass {
+      background: linear-gradient(155deg, rgba(22, 10, 42, 0.85) 0%, rgba(14, 8, 28, 0.92) 100%);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(251, 146, 60, 0.25);
+      box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65);
+    }
+    .hud-glass {
+      background: linear-gradient(155deg, rgba(20, 9, 38, 0.80) 0%, rgba(12, 7, 25, 0.88) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(244, 114, 182, 0.22);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+    .title-glow {
+      text-shadow: 0 0 28px rgba(245, 158, 11, 0.65), 0 4px 18px rgba(0, 0, 0, 0.85);
+    }
+    .btn-race {
+      transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), filter 0.14s ease, box-shadow 0.14s ease;
+    }
+    .btn-race:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+    }
+    .btn-race:active {
+      transform: translateY(1px) scale(0.985);
+    }
+    @keyframes popScale {
+      0% { transform: scale(0.45); opacity: 0; }
+      65% { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .anim-pop {
+      animation: popScale 0.36s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+    }
+    @keyframes shakeError {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+    .anim-shake {
+      animation: shakeError 0.25s ease-in-out;
+    }
+    input[type="range"] {
+      accent-color: #f59e0b;
+    }
+  </style>
+
+  <!-- ES Module Import Map for Three.js r160 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body class="text-white antialiased">
+
+  <!-- Fullscreen 3D WebGL Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Hidden Mobile/Focus Input Bridge -->
+  <input id="typing-focus-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="fixed -top-40 left-0 opacity-0 pointer-events-none" />
+
+  <!-- Top-Right Quick Audio & Pause Bar -->
+  <div class="fixed top-4 right-4 z-40 flex items-center gap-2">
+    <button id="btn-mute-toggle" title="Toggle Audio" class="btn-race hud-glass rounded-xl px-3.5 py-2 flex items-center gap-2 text-xs font-bold tracking-wider text-amber-100 hover:border-amber-400/60 cursor-pointer">
+      <span id="icon-sound-on" class="text-amber-400 text-sm">🔊</span>
+      <span id="icon-sound-off" class="text-rose-400 text-sm hidden">🔇</span>
+      <span id="label-sound" class="hidden sm:inline">SOUND ON</span>
+    </button>
+
+    <button id="btn-pause-trigger" title="Pause (ESC)" class="hidden btn-race hud-glass rounded-xl px-3.5 py-2 flex items-center gap-1.5 text-xs font-bold tracking-wider text-amber-300 hover:border-amber-400/60 cursor-pointer">
+      <span>⏸</span>
+      <span class="hidden sm:inline">PAUSE</span>
+    </button>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 1. MAIN MENU SCREEN                                                   -->
+  <!-- ===================================================================== -->
+  <div id="screen-menu" class="fixed inset-0 z-30 flex flex-col justify-between p-6 sm:p-10 pointer-events-none bg-gradient-to-t from-[#120724]/90 via-transparent to-[#120724]/55">
+    <!-- Top Branding -->
+    <div class="text-center sm:text-left mt-2 pointer-events-auto">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-xs font-extrabold tracking-[0.2em] uppercase mb-2">
+        <span>🌅</span> TYPE DRIVE 3D • DRAG RACING EDITION
+      </div>
+      <h1 class="font-racing italic font-black text-5xl sm:text-7xl tracking-wider text-amber-400 title-glow leading-none">
+        SUNSET HIGHWAY
+      </h1>
+      <p class="font-racing text-xs sm:text-sm tracking-[0.26em] text-fuchsia-200/85 uppercase mt-2">
+        4-LANE STRAIGHT DRAG RACE INTO THE EVENING SUNSET
+      </p>
+    </div>
+
+    <!-- Bottom Action Dock -->
+    <div class="w-full max-w-2xl mx-auto sm:mx-0 pointer-events-auto">
+      <div class="sunset-glass rounded-3xl p-5 sm:p-6 border-l-4 border-l-amber-400">
+        <!-- Active Loadout Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-white/10">
+          <div>
+            <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/75 uppercase">SELECTED MACHINE</div>
+            <div id="menu-car-name" class="font-racing font-bold text-lg text-white">VORTEX CHALLENGER SRT</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/75 uppercase">ACTIVE STAGE</div>
+            <div id="menu-stage-name" class="font-racing font-bold text-lg text-amber-400">STAGE 01 • 450M</div>
+          </div>
+        </div>
+
+        <!-- Primary Play CTA -->
+        <button id="btn-play-race" class="btn-race w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-racing italic font-black text-2xl tracking-wider shadow-[0_12px_34px_rgba(245,158,11,0.45)] flex items-center justify-center gap-3 cursor-pointer mb-3">
+          <span>▶ PLAY RACE</span>
+        </button>
+
+        <!-- Secondary Menu Buttons -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <button id="btn-open-garage" class="btn-race py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-xs sm:text-sm tracking-wider text-white flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>🏎️</span> <span>GARAGE</span>
+          </button>
+          <button id="btn-open-levels" class="btn-race py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-xs sm:text-sm tracking-wider text-white flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>🏆</span> <span>STAGES</span>
+          </button>
+          <button id="btn-open-settings" class="btn-race py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-xs sm:text-sm tracking-wider text-white flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>⚙️</span> <span>SETTINGS</span>
+          </button>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-white/10 text-[11px] text-slate-300 flex items-center justify-between">
+          <span>🎯 <strong class="text-amber-300">100% SENTENCE = FINISH LINE</strong></span>
+          <span class="text-fuchsia-300">Fix typos with <kbd class="px-1.5 py-0.5 rounded bg-white/10 font-code text-[10px]">Backspace</kbd></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. GARAGE / CAR SELECTION SCREEN                                      -->
+  <!-- ===================================================================== -->
+  <div id="screen-garage" class="fixed inset-0 z-30 hidden flex flex-col justify-between p-6 sm:p-8 pointer-events-none bg-gradient-to-t from-[#120724]/95 via-transparent to-[#120724]/75">
+    <div class="flex items-center justify-between pointer-events-auto pr-24">
+      <div>
+        <div class="text-xs font-extrabold tracking-widest text-amber-400 uppercase">SUNSET SHOWROOM</div>
+        <h2 class="font-racing italic font-black text-3xl sm:text-4xl text-white">SELECT YOUR CAR</h2>
+      </div>
+      <button id="btn-garage-back" class="btn-race px-5 py-2.5 rounded-xl sunset-glass font-racing font-bold text-sm tracking-wider text-amber-200 hover:border-amber-400 cursor-pointer">
+        ← BACK TO MENU
+      </button>
+    </div>
+
+    <!-- Selected Car Specs Card -->
+    <div class="my-auto max-w-sm sunset-glass rounded-2xl p-5 pointer-events-auto border-l-4 border-l-amber-400">
+      <div class="flex items-center gap-2 mb-1">
+        <span id="garage-color-dot" class="w-3.5 h-3.5 rounded-full bg-orange-500"></span>
+        <span id="garage-engine-tag" class="font-code text-xs font-bold text-fuchsia-300 uppercase">7.0L V8 SUPERCHARGED</span>
+      </div>
+      <h3 id="garage-car-title" class="font-racing font-black text-2xl text-white">VORTEX CHALLENGER SRT</h3>
+      <p id="garage-car-desc" class="text-xs text-slate-300 mt-0.5 mb-4">American muscle icon with explosive low-end torque.</p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <div class="flex justify-between font-bold mb-1">
+            <span class="text-slate-300">TOP SPEED</span>
+            <span id="stat-speed-val" class="font-code text-amber-300">88/100</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+            <div id="stat-speed-bar" class="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-300" style="width: 88%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between font-bold mb-1">
+            <span class="text-slate-300">THROTTLE RESPONSE</span>
+            <span id="stat-accel-val" class="font-code text-fuchsia-300">92/100</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+            <div id="stat-accel-bar" class="h-full bg-gradient-to-r from-fuchsia-400 to-rose-500 rounded-full transition-all duration-300" style="width: 92%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between font-bold mb-1">
+            <span class="text-slate-300">GEAR RATIO</span>
+            <span id="stat-gear-val" class="font-code text-sky-300">85/100</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+            <div id="stat-gear-bar" class="h-full bg-gradient-to-r from-sky-400 to-indigo-500 rounded-full transition-all duration-300" style="width: 85%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom 4-Car Cards Grid -->
+    <div id="garage-car-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pointer-events-auto"></div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 3. LEVEL / STAGE SELECTION SCREEN                                     -->
+  <!-- ===================================================================== -->
+  <div id="screen-levels" class="fixed inset-0 z-30 hidden flex flex-col justify-between p-6 sm:p-8 bg-[#120724]/92 backdrop-blur-md overflow-y-auto">
+    <div class="flex items-center justify-between mb-6 pr-24">
+      <div>
+        <div class="text-xs font-extrabold tracking-widest text-amber-400 uppercase">DRAG CIRCUIT TOUR</div>
+        <h2 class="font-racing italic font-black text-3xl sm:text-4xl text-white">SELECT STAGE</h2>
+      </div>
+      <button id="btn-levels-back" class="btn-race px-5 py-2.5 rounded-xl sunset-glass font-racing font-bold text-sm tracking-wider text-amber-200 hover:border-amber-400 cursor-pointer">
+        ← BACK TO MENU
+      </button>
+    </div>
+
+    <div id="levels-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 my-auto"></div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 4. SETTINGS MODAL                                                     -->
+  <!-- ===================================================================== -->
+  <div id="screen-settings" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 bg-[#0b0417]/80 backdrop-blur-sm">
+    <div class="sunset-glass rounded-3xl p-6 sm:p-8 w-full max-w-md border-t-4 border-t-amber-400">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="font-racing italic font-black text-2xl sm:text-3xl text-white">SETTINGS</h2>
+        <button id="btn-settings-close" class="btn-race px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold uppercase cursor-pointer">
+          DONE
+        </button>
+      </div>
+
+      <div class="space-y-5 text-sm">
+        <div>
+          <div class="flex justify-between font-bold mb-2">
+            <span class="text-slate-200">Master Volume</span>
+            <span id="set-vol-label" class="font-code text-amber-400">65%</span>
+          </div>
+          <input id="set-vol-slider" type="range" min="0" max="100" value="65" class="w-full cursor-pointer" />
+        </div>
+
+        <label class="flex items-center justify-between py-2.5 border-t border-white/10 cursor-pointer">
+          <div>
+            <div class="font-bold text-slate-200">Synthwave Cruise Loop</div>
+            <div class="text-xs text-slate-400">Ambient sunset bassline during races</div>
+          </div>
+          <input id="set-music-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 cursor-pointer" />
+        </label>
+
+        <label class="flex items-center justify-between py-2.5 border-t border-white/10 cursor-pointer">
+          <div>
+            <div class="font-bold text-slate-200">High-Speed Camera Shake</div>
+            <div class="text-xs text-slate-400">Subtle chassis vibration at top speed</div>
+          </div>
+          <input id="set-shake-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 cursor-pointer" />
+        </label>
+
+        <label class="flex items-center justify-between py-2.5 border-t border-white/10 cursor-pointer">
+          <div>
+            <div class="font-bold text-slate-200">Dynamic Speed FOV</div>
+            <div class="text-xs text-slate-400">Widens field of view as velocity climbs</div>
+          </div>
+          <input id="set-fov-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 cursor-pointer" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 5. ACTIVE RACE HUD                                                    -->
+  <!-- ===================================================================== -->
+  <div id="screen-hud" class="fixed inset-0 z-20 hidden flex flex-col justify-between p-4 sm:p-6 pointer-events-none">
+    <!-- TOP BAR: Live 1st-4th Standings (Left) & Race Telemetry (Right) -->
+    <div class="flex flex-wrap items-start justify-between gap-3 pr-24 sm:pr-44">
+      <!-- Live Standings Card -->
+      <div class="hud-glass rounded-2xl p-3 w-60 sm:w-64 pointer-events-auto">
+        <div class="flex items-center justify-between text-[10px] font-extrabold tracking-widest text-amber-400 uppercase mb-2">
+          <span>LIVE STANDINGS</span>
+          <span class="font-code text-fuchsia-300">4 CARS</span>
+        </div>
+        <div id="hud-standings-list" class="space-y-1.5"></div>
+      </div>
+
+      <!-- Race Info Card -->
+      <div class="hud-glass rounded-2xl px-4 py-3 flex items-center gap-4 sm:gap-6 pointer-events-auto">
+        <div>
+          <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">RACE TIME</div>
+          <div id="hud-race-time" class="font-code font-extrabold text-lg sm:text-xl text-white">00.00s</div>
+        </div>
+        <div class="h-8 w-px bg-white/10"></div>
+        <div>
+          <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">COMPLETION</div>
+          <div id="hud-progress-pct" class="font-code font-extrabold text-lg sm:text-xl text-amber-400">0%</div>
+        </div>
+        <div class="h-8 w-px bg-white/10"></div>
+        <div>
+          <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">REMAINING</div>
+          <div id="hud-dist-rem" class="font-code font-extrabold text-lg sm:text-xl text-rose-300">450m</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE ROW: Vertical 4-Lane Track Minimap (Left), Countdown (Center), Circular Speedometer (Right) -->
+    <div class="flex items-center justify-between my-auto">
+      <!-- Vertical Track Minimap -->
+      <div class="hud-glass rounded-2xl p-3 w-20 sm:w-24 h-60 sm:h-64 hidden sm:flex flex-col items-center justify-between">
+        <div class="text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">🏁 END</div>
+        <div id="minimap-track" class="relative flex-1 w-12 my-2 bg-slate-950/90 rounded-lg border border-white/15 overflow-hidden">
+          <div class="absolute inset-0 grid grid-cols-4 divide-x divide-white/10">
+            <div></div><div></div><div></div><div></div>
+          </div>
+          <div class="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-white via-slate-900 to-white"></div>
+          <!-- 4 Racer Dots -->
+          <div id="map-dot-0" class="absolute w-3 h-3 rounded-full -translate-x-1/2 translate-y-1/2 transition-all duration-75" style="bottom: 3%; left: 12.5%"></div>
+          <div id="map-dot-1" class="absolute w-3 h-3 rounded-full -translate-x-1/2 translate-y-1/2 transition-all duration-75" style="bottom: 3%; left: 37.5%"></div>
+          <div id="map-dot-2" class="absolute w-3 h-3 rounded-full -translate-x-1/2 translate-y-1/2 transition-all duration-75" style="bottom: 3%; left: 62.5%"></div>
+          <div id="map-dot-3" class="absolute w-3 h-3 rounded-full -translate-x-1/2 translate-y-1/2 transition-all duration-75" style="bottom: 3%; left: 87.5%"></div>
+        </div>
+        <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">START</div>
+      </div>
+
+      <!-- Center Countdown Overlay -->
+      <div id="hud-countdown-box" class="mx-auto text-center hidden">
+        <div id="hud-countdown-text" class="font-racing italic font-black text-8xl sm:text-9xl text-amber-400 title-glow">3</div>
+      </div>
+
+      <!-- Right Circular SVG Speedometer -->
+      <div class="hud-glass rounded-2xl p-3.5 w-44 sm:w-48 flex flex-col items-center ml-auto sm:ml-0">
+        <div class="relative w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center">
+          <svg class="w-full h-full -rotate-[225deg]" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="68" fill="none" stroke="#1e1136" stroke-width="10" stroke-dasharray="320.4 427.2" stroke-linecap="round" />
+            <circle id="gauge-speed-arc" cx="80" cy="80" r="68" fill="none" stroke="#f59e0b" stroke-width="10" stroke-dasharray="0 427.2" stroke-linecap="round" />
+            <circle cx="80" cy="80" r="54" fill="none" stroke="#130924" stroke-width="6" stroke-dasharray="254.5 339.3" stroke-linecap="round" />
+            <circle id="gauge-rpm-arc" cx="80" cy="80" r="54" fill="none" stroke="#ec4899" stroke-width="6" stroke-dasharray="0 339.3" stroke-linecap="round" />
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center pt-1">
+            <span id="hud-speed-val" class="font-code font-extrabold text-3xl text-white leading-none">0</span>
+            <span class="font-racing font-bold text-[10px] tracking-widest text-amber-400 mt-0.5">KM/H</span>
+            <div class="mt-2 flex items-center gap-2">
+              <span id="hud-gear-badge" class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 font-code text-xs font-extrabold text-amber-300">G1</span>
+              <span id="hud-rpm-val" class="font-code text-[11px] text-fuchsia-200">1.1k</span>
+            </div>
+          </div>
+        </div>
+        <div id="hud-engine-status" class="w-full mt-1 text-center text-[10px] font-extrabold tracking-widest uppercase py-1 rounded-lg bg-white/5 border border-white/10 text-amber-200">
+          STAGE ENGINE
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM CENTER: Typing Deck -->
+    <div id="typing-deck" class="w-full max-w-4xl mx-auto sunset-glass rounded-2xl p-4 sm:p-5 pointer-events-auto cursor-text border-t-2 border-t-amber-400/60">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">
+        <div class="flex items-center gap-4 sm:gap-6">
+          <div>
+            <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">TYPING PACE</div>
+            <div class="font-code font-extrabold text-lg sm:text-xl text-amber-400"><span id="hud-wpm">0</span> <span class="text-xs text-slate-300">WPM</span></div>
+          </div>
+          <div class="h-7 w-px bg-white/10"></div>
+          <div>
+            <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">ACCURACY</div>
+            <div id="hud-acc" class="font-code font-extrabold text-lg sm:text-xl text-emerald-400">100%</div>
+          </div>
+          <div class="h-7 w-px bg-white/10"></div>
+          <div>
+            <div class="text-[10px] font-bold tracking-widest text-fuchsia-300/80 uppercase">CHARS</div>
+            <div id="hud-char-count" class="font-code font-extrabold text-lg sm:text-xl text-sky-300">0/0</div>
+          </div>
+        </div>
+
+        <div id="hud-typing-badge" class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-extrabold tracking-wider uppercase">
+          TYPE ON GREEN TO ADVANCE
+        </div>
+      </div>
+
+      <!-- Passage Text Container -->
+      <div id="typing-passage-box" class="font-code text-base sm:text-xl leading-relaxed tracking-wide bg-[#0d061a]/90 border border-white/15 rounded-xl p-4">
+        <span id="passage-done" class="text-emerald-400"></span><span id="passage-cursor" class="bg-amber-400/35 text-amber-200 underline decoration-2 decoration-amber-400 px-0.5 rounded font-bold"></span><span id="passage-rest" class="text-slate-300"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 6. PAUSE MENU OVERLAY (ESC)                                           -->
+  <!-- ===================================================================== -->
+  <div id="screen-pause" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 bg-[#0b0417]/80 backdrop-blur-sm">
+    <div class="sunset-glass rounded-3xl p-7 w-full max-w-sm text-center border-t-4 border-t-amber-400">
+      <div class="text-xs font-extrabold tracking-widest text-fuchsia-300 uppercase mb-1">RACE SUSPENDED</div>
+      <h2 class="font-racing italic font-black text-4xl text-white mb-6">PAUSED</h2>
+      <div class="space-y-3">
+        <button id="btn-pause-resume" class="btn-race w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-racing font-black text-lg tracking-wider cursor-pointer">
+          RESUME RACE
+        </button>
+        <button id="btn-pause-restart" class="btn-race w-full py-3.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-lg tracking-wider text-white cursor-pointer">
+          RESTART STAGE
+        </button>
+        <button id="btn-pause-menu" class="btn-race w-full py-3.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 font-racing font-bold text-lg tracking-wider text-rose-200 cursor-pointer">
+          MAIN MENU
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 7. POST-RACE RESULTS SCREEN                                           -->
+  <!-- ===================================================================== -->
+  <div id="screen-results" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 bg-[#0b0417]/85 backdrop-blur-md">
+    <div class="sunset-glass rounded-3xl p-6 sm:p-8 w-full max-w-xl border-t-4 border-t-amber-400">
+      <div class="text-center mb-6">
+        <div id="res-stage-badge" class="inline-block px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold tracking-widest uppercase mb-2">
+          STAGE 01 COMPLETE
+        </div>
+        <h2 id="res-rank-headline" class="font-racing italic font-black text-4xl sm:text-5xl text-white title-glow">
+          🏆 1ST PLACE VICTORY!
+        </h2>
+      </div>
+
+      <!-- 6 Telemetry Stat Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">RACE TIME</div>
+          <div id="res-time" class="font-code font-extrabold text-2xl text-white mt-0.5">00.00s</div>
+        </div>
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">AVERAGE WPM</div>
+          <div id="res-wpm" class="font-code font-extrabold text-2xl text-amber-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">PEAK WPM</div>
+          <div id="res-peak-wpm" class="font-code font-extrabold text-2xl text-fuchsia-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">ACCURACY</div>
+          <div id="res-acc" class="font-code font-extrabold text-2xl text-emerald-400 mt-0.5">100%</div>
+        </div>
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">SENTENCE</div>
+          <div id="res-chars" class="font-code font-extrabold text-2xl text-sky-300 mt-0.5">100%</div>
+        </div>
+        <div class="bg-[#0d061a]/90 border border-white/10 rounded-2xl p-3.5 text-center">
+          <div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">PEAK SPEED</div>
+          <div id="res-speed" class="font-code font-extrabold text-2xl text-rose-400 mt-0.5">0 KM/H</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button id="btn-res-again" class="btn-race py-3.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-sm tracking-wider uppercase text-white cursor-pointer">
+          ↻ RACE AGAIN
+        </button>
+        <button id="btn-res-next" class="btn-race py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-racing font-black text-sm tracking-wider uppercase shadow-lg cursor-pointer">
+          NEXT STAGE →
+        </button>
+        <button id="btn-res-menu" class="btn-race py-3.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 font-racing font-bold text-sm tracking-wider uppercase text-white cursor-pointer">
+          MAIN MENU
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODULAR ES6 GAME ARCHITECTURE                                         -->
+  <!-- ===================================================================== -->
+  <script type="module">
+    import * as THREE from 'three';
+
+    /* ========================================================================
+       1. GAME DATA (CARS, STAGES, RACING PASSAGES)
+       ======================================================================== */
+    const CARS = [
+      {
+        id: 'challenger',
+        name: 'VORTEX CHALLENGER SRT',
+        engineTag: '7.0L V8 SUPERCHARGED',
+        desc: 'American muscle icon with explosive low-end torque and shaker hood.',
+        style: 'challenger',
+        primaryColor: '#ff5e1a',
+        secondaryColor: '#120b24',
+        engineType: 'V8',
+        stats: { speed: 88, accel: 92, gear: 85 },
+        maxKmh: 334,
+        accelMult: 1.05
+      },
+      {
+        id: 'skyline',
+        name: 'KAZE SKYLINE R34',
+        engineTag: '2.6L TWIN-TURBO AWD',
+        desc: 'Precision JDM legend with front intercooler, quad taillights & carbon GT wing.',
+        style: 'skyline',
+        primaryColor: '#0284c7',
+        secondaryColor: '#0f172a',
+        engineType: 'TURBO',
+        stats: { speed: 91, accel: 90, gear: 95 },
+        maxKmh: 342,
+        accelMult: 1.04
+      },
+      {
+        id: 'supra',
+        name: 'APEX SUPRA RZ',
+        engineTag: '3.0L 2JZ SINGLE-TURBO',
+        desc: 'High-top-end boost monster with black roof canopy and signature hoop wing.',
+        style: 'supra',
+        primaryColor: '#e11d48',
+        secondaryColor: '#18181b',
+        engineType: 'TURBO',
+        stats: { speed: 95, accel: 88, gear: 90 },
+        maxKmh: 350,
+        accelMult: 1.03
+      },
+      {
+        id: 'charger',
+        name: 'IRON CHARGER R/T',
+        engineTag: '7.2L MAGNUM BIG-BLOCK',
+        desc: 'Classic Plum Crazy strip bruiser with rear bumblebee stripe and lip spoiler.',
+        style: 'charger',
+        primaryColor: '#7c3aed',
+        secondaryColor: '#09090b',
+        engineType: 'V8',
+        stats: { speed: 90, accel: 94, gear: 84 },
+        maxKmh: 338,
+        accelMult: 1.06
+      }
+    ];
+
+    const STAGES = [
+      {
+        id: 1,
+        name: 'TWILIGHT WARMUP',
+        difficulty: 'BEGINNER',
+        length: 450,
+        targetWpm: 35,
+        aiBaseWpm: 30,
+        desc: '450m sunset sprint. Complete 100% of the sentence to cross the finish banner.'
+      },
+      {
+        id: 2,
+        name: 'SUNSET BOULEVARD',
+        difficulty: 'EASY-MEDIUM',
+        length: 550,
+        targetWpm: 48,
+        aiBaseWpm: 43,
+        desc: '550m highway run. Build steady typing rhythm to surge past tuned street cars.'
+      },
+      {
+        id: 3,
+        name: 'CRIMSON HORIZON',
+        difficulty: 'MEDIUM',
+        length: 680,
+        targetWpm: 62,
+        aiBaseWpm: 56,
+        desc: '680m dusk showdown. Keep a 15+ character streak alive to ignite Nitro Overdrive.'
+      },
+      {
+        id: 4,
+        name: 'VIOLET OVERDRIVE',
+        difficulty: 'HARD',
+        length: 820,
+        targetWpm: 76,
+        aiBaseWpm: 69,
+        desc: '820m high-speed endurance strip with technical automotive passages.'
+      },
+      {
+        id: 5,
+        name: 'APEX SUNSET FINALE',
+        difficulty: 'EXPERT',
+        length: 980,
+        targetWpm: 92,
+        aiBaseWpm: 84,
+        desc: '980m championship drag finale into the twilight mountains. Zero room for typos.'
+      }
+    ];
+
+    const PASSAGES = {
+      1: [
+        'The road belongs to those who never stop. Grip the wheel and launch hard into the sunset.',
+        'Warm twilight asphalt meets pure horsepower on the four-lane strip. Type cleanly to win.',
+        'Amber lights drop to green as exhaust thunder echoes through the dusk valley.',
+        'Smooth fingers make fast machines on Sunset Highway. Keep your focus locked ahead.'
+      ],
+      2: [
+        'Twin turbochargers spool to full boost as second gear bites into the warm evening tarmac.',
+        'Precision reaction off the Christmas tree separates champions from spectators on the strip.',
+        'Golden horizon light reflects off polished hoods while four rival machines charge side by side.',
+        'Correct any mistake immediately with backspace and unleash full throttle down the straight.'
+      ],
+      3: [
+        'At seven thousand RPM, the exhaust note turns into a metallic roar beneath the purple sky.',
+        'Aerodynamic downforce pins the chassis to the highway as speed climbs past two hundred.',
+        'Drag racing is a pure test of rhythm, composure, and accuracy under intense twilight pressure.',
+        'Maintain a clean streak of fifteen characters to ignite blue nitro overdrive flames.'
+      ],
+      4: [
+        'Forged internals, high-octane racing fuel, and sticky drag radials convert typing cadence into raw thrust.',
+        'When the staging bulbs flicker amber, heartbeats synchronize with engine idle; one typo cuts boost.',
+        'Chasing down a twin-turbo rival at dusk demands relentless precision and calm breathing.',
+        'Street lamps blur into golden streaks while telemetry needles dance across the redline.'
+      ],
+      5: [
+        'Championship glory on Sunset Highway requires machine-like consistency: zero wasted motion and fearless pace.',
+        'Through sixth gear at over three hundred kilometers per hour, only pure typing velocity keeps you ahead.',
+        'Four legendary machines charge toward the checkered gantry framed by glowing twilight peaks.',
+        'From the initial launch bite to the final character at the finish line, your keyboard is throttle and nitro.'
+      ]
+    };
+
+    const LANE_X = [-6.3, -2.1, 2.1, 6.3];
+
+    /* ========================================================================
+       2. PROCEDURAL WEB AUDIO ENGINE
+       ======================================================================== */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.master = null;
+        this.volume = 0.65;
+        this.muted = false;
+        this.musicEnabled = true;
+        this.engineRunning = false;
+        this.musicTimer = null;
+        this.noteStep = 0;
+      }
+
+      unlock() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          this.ctx = new AudioCtx();
+          this.master = this.ctx.createGain();
+          this.master.gain.value = this.muted ? 0 : this.volume;
+          this.master.connect(this.ctx.destination);
+          this._startSynthLoop();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      setVolume(v) {
+        this.volume = Math.max(0, Math.min(1, v));
+        if (this.master && this.ctx) {
+          this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.03);
+        }
+      }
+
+      setMuted(m) {
+        this.muted = m;
+        if (this.master && this.ctx) {
+          this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.03);
+        }
+      }
+
+      startEngine(type = 'V8') {
+        this.unlock();
+        if (!this.ctx || !this.master || this.engineRunning) return;
+        const now = this.ctx.currentTime;
+
+        this.osc1 = this.ctx.createOscillator();
+        this.osc2 = this.ctx.createOscillator();
+        this.filter = this.ctx.createBiquadFilter();
+        this.engGain = this.ctx.createGain();
+
+        this.osc1.type = type === 'V8' ? 'sawtooth' : 'triangle';
+        this.osc2.type = type === 'V8' ? 'square' : 'sawtooth';
+        this.osc1.frequency.setValueAtTime(42, now);
+        this.osc2.frequency.setValueAtTime(84, now);
+
+        this.filter.type = 'lowpass';
+        this.filter.frequency.setValueAtTime(175, now);
+        this.filter.Q.value = type === 'V8' ? 3.2 : 4.8;
+
+        this.engGain.gain.setValueAtTime(0.001, now);
+        this.engGain.gain.exponentialRampToValueAtTime(0.15, now + 0.3);
+
+        this.osc1.connect(this.filter);
+        this.osc2.connect(this.filter);
+        this.filter.connect(this.engGain);
+        this.engGain.connect(this.master);
+
+        this.osc1.start(now);
+        this.osc2.start(now);
+        this.engineRunning = true;
+      }
+
+      updateEngine(rpm, active, boosting) {
+        if (!this.ctx || !this.engineRunning) return;
+        const now = this.ctx.currentTime;
+        const norm = Math.max(0, Math.min(1, (rpm - 1000) / 7500));
+        const freq = 38 + norm * 145;
+        this.osc1.frequency.setTargetAtTime(freq, now, 0.04);
+        this.osc2.frequency.setTargetAtTime(freq * (boosting ? 2.02 : 1.5), now, 0.04);
+        this.filter.frequency.setTargetAtTime(160 + norm * (active ? 960 : 420), now, 0.05);
+        this.engGain.gain.setTargetAtTime(active ? 0.19 : 0.1, now, 0.06);
+      }
+
+      stopEngine() {
+        if (!this.ctx || !this.engineRunning) return;
+        const now = this.ctx.currentTime;
+        try {
+          this.engGain.gain.setTargetAtTime(0.0001, now, 0.06);
+          setTimeout(() => {
+            try {
+              this.osc1.stop();
+              this.osc2.stop();
+              this.osc1.disconnect();
+              this.osc2.disconnect();
+            } catch (_) {}
+            this.engineRunning = false;
+          }, 140);
+        } catch (_) {
+          this.engineRunning = false;
+        }
+      }
+
+      playKeyClick(streak) {
+        if (!this.ctx || !this.master || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520 + Math.min(240, streak * 7), now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.035);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.045);
+      }
+
+      playError() {
+        if (!this.ctx || !this.master || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(145, now);
+        osc.frequency.linearRampToValueAtTime(88, now + 0.16);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+        osc.connect(gain);
+        gain.connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+
+      playShift() {
+        if (!this.ctx || !this.master || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.09);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+        osc.connect(gain);
+        gain.connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      }
+
+      playCountdown(isGo) {
+        if (!this.ctx || !this.master || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isGo ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(isGo ? 880 : 440, now);
+        if (isGo) osc.frequency.setValueAtTime(1174.66, now + 0.08);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (isGo ? 0.42 : 0.2));
+        osc.connect(gain);
+        gain.connect(this.master);
+        osc.start(now);
+        osc.stop(now + (isGo ? 0.44 : 0.22));
+      }
+
+      playFanfare(won) {
+        if (!this.ctx || !this.master || this.muted) return;
+        const notes = won ? [523.25, 659.25, 783.99, 1046.5] : [440, 392, 349.23, 329.63];
+        notes.forEach((f, idx) => {
+          const t = this.ctx.currentTime + idx * 0.11;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+          osc.connect(gain);
+          gain.connect(this.master);
+          osc.start(t);
+          osc.stop(t + 0.35);
+        });
+      }
+
+      _startSynthLoop() {
+        if (this.musicTimer) return;
+        const bassNotes = [110, 110, 130.81, 146.83, 87.31, 87.31, 98.0, 130.81];
+        this.musicTimer = setInterval(() => {
+          if (!this.ctx || !this.master || this.muted || !this.musicEnabled || !this.engineRunning) return;
+          if (this.ctx.state !== 'running') return;
+          const now = this.ctx.currentTime;
+          const freq = bassNotes[this.noteStep % bassNotes.length];
+          this.noteStep++;
+
+          const osc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(290, now);
+          gain.gain.setValueAtTime(0.055, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.21);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.master);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        }, 235);
+      }
+    }
+
+    /* ========================================================================
+       3. INDEPENDENT TYPING ENGINE (Drives 0% -> 100% Track Completion)
+       ======================================================================== */
+    class TypingEngine {
+      constructor() {
+        this.reset('');
+      }
+
+      reset(passage) {
+        this.passage = passage;
+        this.typedIndex = 0;
+        this.hasError = false;
+        this.errorChar = '';
+        this.startTime = null;
+        this.totalKeystrokes = 0;
+        this.correctKeystrokes = 0;
+        this.recentTimestamps = [];
+        this.lastCorrectTime = 0;
+        this.peakWpm = 0;
+        this.streak = 0;
+      }
+
+      handleKey(key, nowMs) {
+        if (this.typedIndex >= this.passage.length) return 'COMPLETE';
+
+        if (key === 'Backspace') {
+          if (this.hasError) {
+            this.hasError = false;
+            this.errorChar = '';
+            return 'FIXED';
+          }
+          return 'IGNORED';
+        }
+
+        if (key.length !== 1) return 'IGNORED';
+
+        if (this.startTime === null) {
+          this.startTime = nowMs;
+        }
+
+        // Strict Error Lock: must fix typo before advancing
+        if (this.hasError) {
+          this.totalKeystrokes++;
+          this.errorChar = key;
+          return 'ERROR';
+        }
+
+        this.totalKeystrokes++;
+        const expected = this.passage[this.typedIndex];
+
+        if (key === expected) {
+          this.typedIndex++;
+          this.correctKeystrokes++;
+          this.streak++;
+          this.lastCorrectTime = nowMs;
+          this.recentTimestamps.push(nowMs);
+
+          const cutoff = nowMs - 3400;
+          while (this.recentTimestamps.length > 0 && this.recentTimestamps[0] < cutoff) {
+            this.recentTimestamps.shift();
+          }
+
+          const m = this.getMetrics(nowMs);
+          if (m.wpm > this.peakWpm && this.typedIndex >= 5) {
+            this.peakWpm = m.wpm;
+          }
+          return this.typedIndex >= this.passage.length ? 'COMPLETE' : 'CORRECT';
+        } else {
+          this.hasError = true;
+          this.errorChar = key;
+          this.streak = 0;
+          return 'ERROR';
+        }
+      }
+
+      getMetrics(nowMs) {
+        const cutoff = nowMs - 3400;
+        while (this.recentTimestamps.length > 0 && this.recentTimestamps[0] < cutoff) {
+          this.recentTimestamps.shift();
+        }
+
+        let avgWpm = 0;
+        if (this.startTime !== null && this.typedIndex > 0) {
+          const mins = Math.max(0.02, (nowMs - this.startTime) / 60000);
+          avgWpm = Math.round(this.typedIndex / 5 / mins);
+        }
+
+        const timeSinceLast = this.lastCorrectTime > 0 ? nowMs - this.lastCorrectTime : 9999;
+        const isAccelerating = !this.hasError && timeSinceLast < 680 && this.typedIndex > 0;
+
+        let burstWpm = 0;
+        if (this.recentTimestamps.length >= 2) {
+          const spanSec = Math.max(0.45, (nowMs - this.recentTimestamps[0]) / 1000);
+          burstWpm = ((this.recentTimestamps.length - 1) / 5) / (spanSec / 60);
+        } else if (isAccelerating) {
+          burstWpm = 46;
+        }
+
+        const wpm = this.startTime
+          ? Math.min(240, Math.max(avgWpm, Math.round(burstWpm * 0.65 + avgWpm * 0.35)))
+          : 0;
+        if (wpm > this.peakWpm && this.typedIndex >= 6) {
+          this.peakWpm = wpm;
+        }
+
+        const accuracy =
+          this.totalKeystrokes === 0
+            ? 100
+            : Math.max(0, Math.min(100, Math.round((this.correctKeystrokes / this.totalKeystrokes) * 100)));
+
+        const completionRatio =
+          this.passage.length === 0 ? 0 : Math.min(1, Math.max(0, this.typedIndex / this.passage.length));
+        const isSentenceComplete = this.passage.length > 0 && this.typedIndex >= this.passage.length;
+
+        return {
+          passage: this.passage,
+          typedIndex: this.typedIndex,
+          hasError: this.hasError,
+          errorChar: this.errorChar,
+          wpm,
+          peakWpm: Math.max(this.peakWpm, wpm),
+          accuracy,
+          completionRatio,
+          isSentenceComplete,
+          totalKeystrokes: this.totalKeystrokes,
+          correctKeystrokes: this.correctKeystrokes,
+          isAccelerating,
+          streak: this.streak
+        };
+      }
+    }
+
+    /* ========================================================================
+       4. SENTENCE-LOCKED PLAYER CONTROLLER & AI RACERS
+       ======================================================================== */
+    class SentenceLockedPlayerController {
+      constructor(spec, trackLength) {
+        this.spec = spec;
+        this.trackLength = trackLength;
+        this.progress = 0;      // 0..1 visual progress along track
+        this.distance = 0;      // meters (0..trackLength)
+        this.speedMs = 0;       // m/s
+        this.peakSpeedKmh = 0;
+        this.rpm = 1100;
+        this.gear = 1;
+        this.pitch = 0;
+        this.wheelAngle = 0;
+        this.isBoosting = false;
+        this.finished = false;
+        this.finishTime = null;
+      }
+
+      update(dt, metrics, raceSec, onShift) {
+        if (this.finished) {
+          // Coast smoothly past the finish gantry after crossing at 100% sentence completion
+          this.speedMs = Math.max(0, this.speedMs - 24 * dt);
+          this.distance += this.speedMs * dt;
+          this.wheelAngle += (this.speedMs * dt) / 0.38;
+          this.rpm = 1100 + (this.speedMs / 90) * 3200;
+          this.pitch *= Math.pow(0.05, dt);
+          this.isBoosting = false;
+          return;
+        }
+
+        const prevDistance = this.distance;
+
+        if (metrics.hasError) {
+          // Error Lock: car immediately halts forward target advance until Backspace clears error
+          this.speedMs = Math.max(0, this.speedMs - 55 * dt);
+          this.isBoosting = false;
+          this.pitch += (0.032 - this.pitch) * Math.min(1, dt * 14); // Nose dive on misfire
+        } else {
+          // Target position along the track is strictly locked to sentence completion percentage
+          const targetProgress = metrics.completionRatio;
+          const lerpRate = metrics.isSentenceComplete ? 18 : 13;
+          this.progress += (targetProgress - this.progress) * Math.min(1, dt * lerpRate);
+
+          // Snap cleanly to 1.0 once sentence is 100% typed and car reaches the finish threshold
+          if (metrics.isSentenceComplete && this.progress > 0.992) {
+            this.progress = 1.0;
+          }
+
+          const newDistance = this.progress * this.trackLength;
+          const instantSpeedMs = dt > 0 ? Math.max(0, (newDistance - prevDistance) / dt) : 0;
+
+          // Smooth speedometer velocity readout based on real longitudinal displacement + typing WPM
+          const wpmTargetMs = metrics.isAccelerating || metrics.isSentenceComplete
+            ? Math.min(this.spec.maxKmh / 3.6, (metrics.wpm * 0.92 + 18) * 1.05)
+            : 0;
+          const blendedTargetSpeed = Math.max(instantSpeedMs * 0.85, wpmTargetMs * 0.75);
+          this.speedMs += (blendedTargetSpeed - this.speedMs) * Math.min(1, dt * 10);
+
+          this.distance = newDistance;
+          this.wheelAngle += (this.distance - prevDistance) / 0.38;
+
+          this.isBoosting = (metrics.isAccelerating || metrics.isSentenceComplete) && metrics.streak >= 15;
+          const targetPitch = (metrics.isAccelerating || metrics.isSentenceComplete) ? -0.028 : 0.008;
+          this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 12);
+        }
+
+        const speedKmh = this.speedMs * 3.6;
+        if (speedKmh > this.peakSpeedKmh) {
+          this.peakSpeedKmh = speedKmh;
+        }
+
+        // 6-Speed Gearbox
+        const thresholds = [0, 58, 108, 160, 215, 270, 365];
+        let nextGear = 1;
+        for (let g = 1; g <= 6; g++) {
+          if (speedKmh >= thresholds[g - 1]) nextGear = g;
+        }
+        if (nextGear !== this.gear) {
+          if (nextGear > this.gear && onShift) onShift();
+          this.gear = nextGear;
+        }
+
+        const gMin = thresholds[this.gear - 1];
+        const gMax = thresholds[this.gear];
+        const gProg = Math.max(0, Math.min(1, (speedKmh - gMin) / Math.max(1, gMax - gMin)));
+        const targetRpm = metrics.hasError
+          ? 1250
+          : this.speedMs < 0.8
+          ? 1100 + (metrics.isAccelerating ? 2100 : 0)
+          : 2500 + gProg * 5600 + (this.isBoosting ? 350 : 0);
+        this.rpm += (targetRpm - this.rpm) * Math.min(1, dt * 15);
+
+        // STRICT FINISH CONDITION: Player finishes ONLY when 100% of the sentence is completed!
+        if (metrics.isSentenceComplete && this.progress >= 0.999 && !this.finished) {
+          this.distance = this.trackLength;
+          this.finished = true;
+          this.finishTime = raceSec;
+        }
+      }
+    }
+
+    class AIRacer {
+      constructor(id, name, spec, lane, stage, skillOffset) {
+        this.id = id;
+        this.name = name;
+        this.spec = spec;
+        this.lane = lane;
+        this.trackLength = stage.length;
+
+        this.distance = 0;
+        this.speedMs = 0;
+        this.rpm = 1100;
+        this.gear = 1;
+        this.pitch = 0;
+        this.wheelAngle = 0;
+        this.isBoosting = false;
+        this.finished = false;
+        this.finishTime = null;
+
+        // AI progress rate calibrated directly against stage target WPM & passage length
+        this.reactionDelay = 0.15 + Math.random() * 0.25;
+        this.effectiveWpm = Math.max(20, stage.aiBaseWpm + skillOffset + (Math.random() - 0.5) * 5);
+        this.wavePhase = Math.random() * Math.PI * 2;
+        this.waveFreq = 0.7 + Math.random() * 0.65;
+        this.stumbleTimer = 0;
+      }
+
+      update(dt, raceSec, passageCharLength, playerProgress) {
+        if (this.finished) {
+          this.speedMs = Math.max(0, this.speedMs - 24 * dt);
+          this.distance += this.speedMs * dt;
+          this.wheelAngle += (this.speedMs * dt) / 0.38;
+          this.rpm = 1100 + (this.speedMs / 90) * 3200;
+          this.pitch *= Math.pow(0.05, dt);
+          this.isBoosting = false;
+          return;
+        }
+
+        if (raceSec < this.reactionDelay) return;
+
+        if (this.stumbleTimer > 0) {
+          this.stumbleTimer -= dt;
+          this.speedMs = Math.max(0, this.speedMs - 30 * dt);
+          this.isBoosting = false;
+          return;
+        } else if (Math.random() < dt * 0.14 && raceSec > 2.5) {
+          this.stumbleTimer = 0.22 + Math.random() * 0.28;
+        }
+
+        // Convert AI WPM into progress-per-second for the current passage length
+        const charsPerSec = (this.effectiveWpm * 5) / 60;
+        const baseProgressRate = charsPerSec / Math.max(20, passageCharLength);
+
+        const aiProgress = this.distance / this.trackLength;
+        const gap = playerProgress - aiProgress;
+        const competitiveAdjust = Math.max(-0.15, Math.min(0.18, gap * 0.35));
+        const wave = Math.sin(raceSec * this.waveFreq + this.wavePhase) * 0.12;
+
+        const stepProgress = Math.max(0.002, baseProgressRate * (1 + wave + competitiveAdjust)) * dt;
+        const prevDist = this.distance;
+        this.distance = Math.min(this.trackLength, this.distance + stepProgress * this.trackLength);
+
+        const instantSpeed = dt > 0 ? (this.distance - prevDist) / dt : 0;
+        this.speedMs += (instantSpeed * 2.1 - this.speedMs) * Math.min(1, dt * 8);
+        this.wheelAngle += (this.distance - prevDist) / 0.38;
+        this.isBoosting = wave > 0.08;
+        this.pitch = -0.02;
+
+        if (this.distance >= this.trackLength && !this.finished) {
+          this.finished = true;
+          this.finishTime = raceSec;
+        }
+      }
+    }
+
+    /* ========================================================================
+       5. PROCEDURAL 3D VEHICLE BUILDER
+       ======================================================================== */
+    function buildCarRig(spec) {
+      const root = new THREE.Group();
+      const bodyGroup = new THREE.Group();
+      root.add(bodyGroup);
+
+      const paintMat = new THREE.MeshStandardMaterial({
+        color: spec.primaryColor,
+        metalness: 0.62,
+        roughness: 0.24
+      });
+      const trimMat = new THREE.MeshStandardMaterial({
+        color: spec.secondaryColor,
+        metalness: 0.3,
+        roughness: 0.55
+      });
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: '#0b0818',
+        metalness: 0.9,
+        roughness: 0.1
+      });
+      const chromeMat = new THREE.MeshStandardMaterial({
+        color: '#e2e8f0',
+        metalness: 0.92,
+        roughness: 0.16
+      });
+      const headMat = new THREE.MeshBasicMaterial({ color: '#fef08a' });
+      const tailMat = new THREE.MeshBasicMaterial({ color: '#ff1e42' });
+
+      const isMuscle = spec.style === 'challenger' || spec.style === 'charger';
+
+      // Main Lower Chassis
+      const lower = new THREE.Mesh(new THREE.BoxGeometry(2.06, 0.56, 4.65), paintMat);
+      lower.position.set(0, 0.54, 0);
+      lower.castShadow = true;
+      lower.receiveShadow = true;
+      bodyGroup.add(lower);
+
+      // Front Splitter
+      const splitter = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.14, 0.55), trimMat);
+      splitter.position.set(0, 0.3, 2.2);
+      bodyGroup.add(splitter);
+
+      // Model-specific Hood Details
+      if (spec.style === 'challenger') {
+        const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.16, 1.15), trimMat);
+        scoop.position.set(0, 0.87, 1.15);
+        bodyGroup.add(scoop);
+      } else if (spec.style === 'charger') {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.04, 0.45), trimMat);
+        stripe.position.set(0, 0.83, -1.65);
+        bodyGroup.add(stripe);
+      } else {
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.06, 0.75), trimMat);
+        vent.position.set(0, 0.83, 1.25);
+        bodyGroup.add(vent);
+      }
+
+      // Cabin Greenhouse & Roof
+      const cabinLen = spec.style === 'charger' ? 2.35 : 1.95;
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.52, cabinLen), glassMat);
+      cabin.position.set(0, 1.04, -0.18);
+      cabin.castShadow = true;
+      bodyGroup.add(cabin);
+
+      const roofMat = spec.style === 'supra' ? trimMat : paintMat;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.08, cabinLen * 0.65), roofMat);
+      roof.position.set(0, 1.31, -0.18);
+      bodyGroup.add(roof);
+
+      // Model-specific Rear Spoiler
+      if (spec.style === 'skyline') {
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.08, 0.36), trimMat);
+        wing.position.set(0, 1.28, -2.08);
+        const sL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.22), trimMat);
+        sL.position.set(-0.72, 1.04, -2.08);
+        const sR = sL.clone();
+        sR.position.x = 0.72;
+        bodyGroup.add(wing, sL, sR);
+      } else if (spec.style === 'supra') {
+        const hoop = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.1, 0.34), paintMat);
+        hoop.position.set(0, 1.24, -2.05);
+        const pL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 0.34), paintMat);
+        pL.position.set(-0.92, 1.02, -2.05);
+        const pR = pL.clone();
+        pR.position.x = 0.92;
+        bodyGroup.add(hoop, pL, pR);
+      } else {
+        const lip = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.14, 0.24), trimMat);
+        lip.position.set(0, 0.88, -2.22);
+        bodyGroup.add(lip);
+      }
+
+      // Front Grille & Headlights
+      const grille = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.26, 0.08), trimMat);
+      grille.position.set(0, 0.56, 2.33);
+      bodyGroup.add(grille);
+
+      if (spec.style === 'skyline') {
+        const ic = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.2, 0.1), chromeMat);
+        ic.position.set(0, 0.36, 2.33);
+        bodyGroup.add(ic);
+      }
+
+      const hlGeo = isMuscle ? new THREE.CylinderGeometry(0.11, 0.11, 0.08, 12) : new THREE.BoxGeometry(0.38, 0.14, 0.08);
+      if (isMuscle) hlGeo.rotateX(Math.PI / 2);
+      [-0.74, -0.5, 0.5, 0.74].forEach((xPos, idx) => {
+        if (!isMuscle && (idx === 1 || idx === 2)) return;
+        const hl = new THREE.Mesh(hlGeo, headMat);
+        hl.position.set(xPos, 0.58, 2.35);
+        bodyGroup.add(hl);
+      });
+
+      // Taillights
+      if (spec.style === 'skyline') {
+        const ringGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.08, 16);
+        ringGeo.rotateX(Math.PI / 2);
+        [-0.72, -0.42, 0.42, 0.72].forEach((xPos) => {
+          const tl = new THREE.Mesh(ringGeo, tailMat);
+          tl.position.set(xPos, 0.62, -2.34);
+          bodyGroup.add(tl);
+        });
+      } else {
+        const tlBar = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.16, 0.08), tailMat);
+        tlBar.position.set(0, 0.62, -2.34);
+        bodyGroup.add(tlBar);
+      }
+
+      // Dual Exhaust & Nitro Overdrive Flames
+      const pipeGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.25, 12);
+      pipeGeo.rotateX(Math.PI / 2);
+      const flameGeo = new THREE.ConeGeometry(0.15, 0.92, 10);
+      flameGeo.rotateX(-Math.PI / 2);
+      const flameMat = new THREE.MeshBasicMaterial({
+        color: '#38bdf8',
+        transparent: true,
+        opacity: 0.92
+      });
+
+      const pipeL = new THREE.Mesh(pipeGeo, chromeMat);
+      pipeL.position.set(-0.58, 0.3, -2.38);
+      const pipeR = pipeL.clone();
+      pipeR.position.x = 0.58;
+
+      const flameLeft = new THREE.Mesh(flameGeo, flameMat);
+      flameLeft.position.set(-0.58, 0.3, -2.88);
+      flameLeft.visible = false;
+
+      const flameRight = new THREE.Mesh(flameGeo, flameMat);
+      flameRight.position.set(0.58, 0.3, -2.88);
+      flameRight.visible = false;
+
+      bodyGroup.add(pipeL, pipeR, flameLeft, flameRight);
+
+      // 4 Rotating Wheels
+      const wheels = [];
+      const tireGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.32, 18);
+      tireGeo.rotateZ(Math.PI / 2);
+      const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.34, 10);
+      rimGeo.rotateZ(Math.PI / 2);
+      const tireMat = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.85 });
+
+      const wheelOffsets = [
+        [-1.02, 0.38, 1.42],
+        [1.02, 0.38, 1.42],
+        [-1.02, 0.38, -1.42],
+        [1.02, 0.38, -1.42]
+      ];
+
+      wheelOffsets.forEach(([wx, wy, wz]) => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(wx, wy, wz);
+        const tire = new THREE.Mesh(tireGeo, tireMat);
+        tire.castShadow = true;
+        const rim = new THREE.Mesh(rimGeo, chromeMat);
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.07), trimMat);
+        wGroup.add(tire, rim, spoke);
+        root.add(wGroup);
+        wheels.push(wGroup);
+      });
+
+      return { root, bodyGroup, wheels, flameLeft, flameRight };
+    }
+
+    /* ========================================================================
+       6. SUNSET HIGHWAY 3D SCENE & RENDERER
+       ======================================================================== */
+    class SunsetHighwayWorld {
+      constructor(container) {
+        this.container = container;
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.15;
+        container.appendChild(this.renderer.domElement);
+
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2('#3d1247', 0.0021);
+
+        this.camera = new THREE.PerspectiveCamera(58, container.clientWidth / container.clientHeight, 0.3, 1600);
+        this.camPos = new THREE.Vector3(0, 4.5, -11);
+        this.camLook = new THREE.Vector3(0, 1.5, 25);
+
+        this._buildSunsetSkyDome();
+        this._buildLighting();
+        this._buildHighwayAndScenery();
+        this._buildGantries();
+        this._buildCars();
+
+        this._onResize = this._onResize.bind(this);
+        window.addEventListener('resize', this._onResize);
+      }
+
+      _buildSunsetSkyDome() {
+        const skyGeo = new THREE.SphereGeometry(1350, 32, 24);
+        const skyMat = new THREE.ShaderMaterial({
+          side: THREE.BackSide,
+          depthWrite: false,
+          uniforms: {
+            topColor: { value: new THREE.Color('#13072b') },
+            midColor: { value: new THREE.Color('#4c1559') },
+            horizonColor: { value: new THREE.Color('#d9534f') },
+            glowColor: { value: new THREE.Color('#fb923c') }
+          },
+          vertexShader: `
+            varying vec3 vWorldPosition;
+            void main() {
+              vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+              vWorldPosition = worldPosition.xyz;
+              gl_Position = projectionMatrix * viewMatrix * worldPosition;
+            }
+          `,
+          fragmentShader: `
+            uniform vec3 topColor;
+            uniform vec3 midColor;
+            uniform vec3 horizonColor;
+            uniform vec3 glowColor;
+            varying vec3 vWorldPosition;
+            void main() {
+              vec3 dir = normalize(vWorldPosition);
+              float h = clamp(dir.y, 0.0, 1.0);
+              vec3 col = mix(horizonColor, midColor, smoothstep(0.0, 0.24, h));
+              col = mix(col, topColor, smoothstep(0.24, 0.72, h));
+              float sunDir = max(0.0, dot(dir, normalize(vec3(0.0, 0.08, 1.0))));
+              col += glowColor * pow(sunDir, 6.0) * 0.42 * (1.0 - smoothstep(0.0, 0.35, h));
+              gl_FragColor = vec4(col, 1.0);
+            }
+          `
+        });
+        this.skyDome = new THREE.Mesh(skyGeo, skyMat);
+        this.scene.add(this.skyDome);
+
+        const sunGeo = new THREE.CircleGeometry(68, 32);
+        const sunMat = new THREE.MeshBasicMaterial({
+          color: '#fb923c',
+          transparent: true,
+          opacity: 0.78,
+          fog: false
+        });
+        this.sunDisc = new THREE.Mesh(sunGeo, sunMat);
+        this.sunDisc.position.set(0, 48, 1180);
+        this.sunDisc.rotation.y = Math.PI;
+        this.scene.add(this.sunDisc);
+      }
+
+      _buildLighting() {
+        const hemi = new THREE.HemisphereLight('#c084fc', '#1a2e1a', 0.88);
+        this.scene.add(hemi);
+
+        const sunLight = new THREE.DirectionalLight('#fdba74', 2.0);
+        sunLight.position.set(45, 52, 160);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(2048, 2048);
+        sunLight.shadow.camera.near = 5;
+        sunLight.shadow.camera.far = 320;
+        sunLight.shadow.camera.left = -45;
+        sunLight.shadow.camera.right = 45;
+        sunLight.shadow.camera.top = 70;
+        sunLight.shadow.camera.bottom = -70;
+        this.scene.add(sunLight);
+
+        this.followLight = new THREE.PointLight('#fb923c', 2.4, 48);
+        this.followLight.position.set(0, 7, 0);
+        this.scene.add(this.followLight);
+      }
+
+      _buildHighwayAndScenery() {
+        const maxLen = 1250;
+        const roadW = 18.5;
+
+        const roadGeo = new THREE.PlaneGeometry(roadW, maxLen);
+        roadGeo.rotateX(-Math.PI / 2);
+        const roadMat = new THREE.MeshStandardMaterial({
+          color: '#11101d',
+          roughness: 0.74,
+          metalness: 0.14
+        });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.position.set(0, 0, maxLen / 2 - 40);
+        road.receiveShadow = true;
+        this.scene.add(road);
+
+        const plainGeo = new THREE.PlaneGeometry(1800, maxLen + 400);
+        plainGeo.rotateX(-Math.PI / 2);
+        const plainMat = new THREE.MeshStandardMaterial({
+          color: '#182411',
+          roughness: 0.95
+        });
+        const plain = new THREE.Mesh(plainGeo, plainMat);
+        plain.position.set(0, -0.05, maxLen / 2 - 40);
+        this.scene.add(plain);
+
+        // Solid White Outer Shoulder Lines
+        const edgeGeo = new THREE.PlaneGeometry(0.28, maxLen);
+        edgeGeo.rotateX(-Math.PI / 2);
+        const whiteLineMat = new THREE.MeshBasicMaterial({ color: '#f8fafc' });
+        [-8.7, 8.7].forEach((ex) => {
+          const line = new THREE.Mesh(edgeGeo, whiteLineMat);
+          line.position.set(ex, 0.016, maxLen / 2 - 40);
+          this.scene.add(line);
+        });
+
+        // Double Yellow Dashed Center Highway Lines & White Lane Dividers
+        const yellowDashGeo = new THREE.PlaneGeometry(0.14, 3.6);
+        yellowDashGeo.rotateX(-Math.PI / 2);
+        const yellowMat = new THREE.MeshBasicMaterial({ color: '#facc15' });
+
+        const whiteDashGeo = new THREE.PlaneGeometry(0.16, 3.8);
+        whiteDashGeo.rotateX(-Math.PI / 2);
+
+        const dummy = new THREE.Object3D();
+        const dashCount = 145;
+
+        const yellowInst = new THREE.InstancedMesh(yellowDashGeo, yellowMat, dashCount * 2);
+        const whiteInst = new THREE.InstancedMesh(whiteDashGeo, whiteLineMat, dashCount * 2);
+
+        let yIdx = 0;
+        let wIdx = 0;
+        for (let i = 0; i < dashCount; i++) {
+          const z = i * 8.4 - 20;
+          [-0.22, 0.22].forEach((cx) => {
+            dummy.position.set(cx, 0.018, z);
+            dummy.rotation.set(0, 0, 0);
+            dummy.updateMatrix();
+            yellowInst.setMatrixAt(yIdx++, dummy.matrix);
+          });
+          [-4.2, 4.2].forEach((lx) => {
+            dummy.position.set(lx, 0.018, z);
+            dummy.rotation.set(0, 0, 0);
+            dummy.updateMatrix();
+            whiteInst.setMatrixAt(wIdx++, dummy.matrix);
+          });
+        }
+        this.scene.add(yellowInst, whiteInst);
+
+        // Concrete Jersey Barriers & Warm Amber Accent Strip
+        const barrierGeo = new THREE.BoxGeometry(0.85, 1.15, maxLen);
+        const barrierMat = new THREE.MeshStandardMaterial({ color: '#271e38', roughness: 0.82 });
+        const stripGeo = new THREE.BoxGeometry(0.12, 0.12, maxLen);
+        const stripMat = new THREE.MeshBasicMaterial({ color: '#f59e0b' });
+
+        [-9.7, 9.7].forEach((bx) => {
+          const barrier = new THREE.Mesh(barrierGeo, barrierMat);
+          barrier.position.set(bx, 0.575, maxLen / 2 - 40);
+          this.scene.add(barrier);
+
+          const strip = new THREE.Mesh(stripGeo, stripMat);
+          strip.position.set(bx > 0 ? bx - 0.44 : bx + 0.44, 0.96, maxLen / 2 - 40);
+          this.scene.add(strip);
+        });
+
+        // Overhanging Highway Street Lamps
+        const lampCount = 26;
+        const postGeo = new THREE.BoxGeometry(0.28, 10.5, 0.28);
+        const armGeo = new THREE.BoxGeometry(3.4, 0.2, 0.2);
+        const bulbGeo = new THREE.BoxGeometry(0.95, 0.16, 0.36);
+
+        const poleMat = new THREE.MeshStandardMaterial({ color: '#2b211e', roughness: 0.7 });
+        const lampGlowMat = new THREE.MeshBasicMaterial({ color: '#fef3c7' });
+
+        const postInst = new THREE.InstancedMesh(postGeo, poleMat, lampCount * 2);
+        const armInst = new THREE.InstancedMesh(armGeo, poleMat, lampCount * 2);
+        const bulbInst = new THREE.InstancedMesh(bulbGeo, lampGlowMat, lampCount * 2);
+
+        let lIdx = 0;
+        for (let i = 0; i < lampCount; i++) {
+          const lz = i * 46 - 8;
+          [-10.6, 10.6].forEach((lx) => {
+            const dir = lx < 0 ? 1 : -1;
+            dummy.position.set(lx, 5.25, lz);
+            dummy.rotation.set(0, 0, 0);
+            dummy.updateMatrix();
+            postInst.setMatrixAt(lIdx, dummy.matrix);
+
+            dummy.position.set(lx + dir * 1.55, 10.4, lz);
+            dummy.updateMatrix();
+            armInst.setMatrixAt(lIdx, dummy.matrix);
+
+            dummy.position.set(lx + dir * 2.8, 10.26, lz);
+            dummy.updateMatrix();
+            bulbInst.setMatrixAt(lIdx, dummy.matrix);
+            lIdx++;
+          });
+        }
+        this.scene.add(postInst, armInst, bulbInst);
+
+        // Low-Poly Sunset Mountains Flanking Both Sides
+        const mtnBodyMat = new THREE.MeshStandardMaterial({
+          color: '#3b1d36',
+          roughness: 0.9,
+          flatShading: true
+        });
+        const mtnPeakMat = new THREE.MeshStandardMaterial({
+          color: '#b56c47',
+          roughness: 0.78,
+          flatShading: true
+        });
+
+        let seed = 404;
+        const rand = () => {
+          seed = (seed * 1664525 + 1013904223) % 4294967296;
+          return seed / 4294967296;
+        };
+
+        for (let i = 0; i < 36; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          const distOut = 95 + rand() * 260;
+          const mz = i * 36 - 40;
+          const h = 75 + rand() * 115;
+          const r = 52 + rand() * 58;
+
+          const mtn = new THREE.Mesh(new THREE.ConeGeometry(r, h, 4), mtnBodyMat);
+          mtn.position.set(side * distOut, h * 0.45 - 4, mz);
+          mtn.rotation.y = rand() * Math.PI;
+          this.scene.add(mtn);
+
+          if (h > 115) {
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(r * 0.36, h * 0.36, 4), mtnPeakMat);
+            cap.position.set(side * distOut, h * 0.77 - 4, mz);
+            cap.rotation.y = mtn.rotation.y;
+            this.scene.add(cap);
+          }
+        }
+
+        // Instanced Low-Poly Pine Trees
+        const treeCount = 260;
+        const trunkGeo = new THREE.CylinderGeometry(0.28, 0.45, 2.2, 5);
+        trunkGeo.translate(0, 1.1, 0);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b150d', roughness: 0.9, flatShading: true });
+
+        const tier1Geo = new THREE.ConeGeometry(2.3, 3.6, 5);
+        tier1Geo.translate(0, 3.3, 0);
+        const tier2Geo = new THREE.ConeGeometry(1.75, 3.1, 5);
+        tier2Geo.translate(0, 5.1, 0);
+        const pineMat = new THREE.MeshStandardMaterial({ color: '#132e0f', roughness: 0.88, flatShading: true });
+
+        const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, treeCount);
+        const tier1Inst = new THREE.InstancedMesh(tier1Geo, pineMat, treeCount);
+        const tier2Inst = new THREE.InstancedMesh(tier2Geo, pineMat, treeCount);
+
+        for (let i = 0; i < treeCount; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          const tx = side * (16 + rand() * 140);
+          const tz = rand() * 1180 - 30;
+          const sc = 0.8 + rand() * 1.1;
+
+          dummy.position.set(tx, 0, tz);
+          dummy.rotation.set(0, rand() * Math.PI * 2, 0);
+          dummy.scale.setScalar(sc);
+          dummy.updateMatrix();
+
+          trunkInst.setMatrixAt(i, dummy.matrix);
+          tier1Inst.setMatrixAt(i, dummy.matrix);
+          tier2Inst.setMatrixAt(i, dummy.matrix);
+        }
+        this.scene.add(trunkInst, tier1Inst, tier2Inst);
+      }
+
+      _buildGantries() {
+        // Starting Line Stripe
+        const startLine = new THREE.Mesh(
+          new THREE.PlaneGeometry(18.5, 0.75),
+          new THREE.MeshBasicMaterial({ color: '#ffffff' })
+        );
+        startLine.rotation.x = -Math.PI / 2;
+        startLine.position.set(0, 0.022, 2.35);
+        this.scene.add(startLine);
+
+        // Christmas Tree Starting Gantry at Z = 14
+        const gantryMat = new THREE.MeshStandardMaterial({ color: '#1b112e', metalness: 0.65, roughness: 0.4 });
+        const pillarGeo = new THREE.BoxGeometry(0.6, 7.4, 0.6);
+
+        const treeGroup = new THREE.Group();
+        treeGroup.position.set(0, 0, 14);
+        const pL = new THREE.Mesh(pillarGeo, gantryMat);
+        pL.position.set(-9.6, 3.7, 0);
+        const pR = pL.clone();
+        pR.position.x = 9.6;
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(20.2, 0.85, 0.85), gantryMat);
+        beam.position.set(0, 7.1, 0);
+
+        const box = new THREE.Mesh(new THREE.BoxGeometry(1.15, 3.5, 0.8), gantryMat);
+        box.position.set(0, 5.0, 0);
+        treeGroup.add(pL, pR, beam, box);
+
+        const bulbGeo = new THREE.SphereGeometry(0.24, 14, 14);
+        this.treeBulbMats = [
+          new THREE.MeshBasicMaterial({ color: '#33244a' }),
+          new THREE.MeshBasicMaterial({ color: '#33244a' }),
+          new THREE.MeshBasicMaterial({ color: '#33244a' }),
+          new THREE.MeshBasicMaterial({ color: '#33244a' })
+        ];
+        [6.1, 5.4, 4.7, 4.0].forEach((by, idx) => {
+          const bulb = new THREE.Mesh(bulbGeo, this.treeBulbMats[idx]);
+          bulb.position.set(0, by, -0.42);
+          treeGroup.add(bulb);
+        });
+        this.scene.add(treeGroup);
+
+        // Towering Checkered Finish Line Gantry with Canvas FINISH Banner
+        this.finishGroup = new THREE.Group();
+        const fL = new THREE.Mesh(new THREE.BoxGeometry(0.85, 9.2, 0.85), gantryMat);
+        fL.position.set(-9.8, 4.6, 0);
+        const fR = fL.clone();
+        fR.position.x = 9.8;
+
+        // Procedural Canvas Texture for "FINISH" Banner
+        const bannerCanvas = document.createElement('canvas');
+        bannerCanvas.width = 1024;
+        bannerCanvas.height = 128;
+        const bCtx = bannerCanvas.getContext('2d');
+        bCtx.fillStyle = '#140826';
+        bCtx.fillRect(0, 0, 1024, 128);
+        bCtx.strokeStyle = '#f59e0b';
+        bCtx.lineWidth = 10;
+        bCtx.strokeRect(5, 5, 1014, 118);
+        bCtx.fillStyle = '#fbbf24';
+        bCtx.font = '900 72px "Chakra Petch", sans-serif';
+        bCtx.textAlign = 'center';
+        bCtx.textBaseline = 'middle';
+        bCtx.fillText('🏁  F I N I S H  🏁', 512, 68);
+
+        const bannerTex = new THREE.CanvasTexture(bannerCanvas);
+        const fTop = new THREE.Mesh(
+          new THREE.BoxGeometry(20.6, 2.0, 0.9),
+          new THREE.MeshBasicMaterial({ map: bannerTex })
+        );
+        fTop.position.set(0, 8.5, 0);
+
+        // Checkered Finish Line Road Tiles
+        const cols = 16;
+        const sqW = 18.5 / cols;
+        for (let r = 0; r < 2; r++) {
+          for (let c = 0; c < cols; c++) {
+            const tile = new THREE.Mesh(
+              new THREE.PlaneGeometry(sqW, sqW),
+              new THREE.MeshBasicMaterial({ color: (r + c) % 2 === 0 ? '#ffffff' : '#0f071c' })
+            );
+            tile.rotation.x = -Math.PI / 2;
+            tile.position.set(-9.25 + sqW * (c + 0.5), 0.025, r * sqW);
+            this.finishGroup.add(tile);
+          }
+        }
+
+        this.finishGroup.add(fL, fR, fTop);
+        this.scene.add(this.finishGroup);
+      }
+
+      _buildCars() {
+        this.raceRigs = new Map();
+        CARS.forEach((spec, idx) => {
+          const rig = buildCarRig(spec);
+          rig.root.position.set(LANE_X[idx], 0, 0);
+          this.scene.add(rig.root);
+          this.raceRigs.set(spec.id, rig);
+        });
+
+        // Garage Showcase Turntable
+        this.turntable = new THREE.Group();
+        this.turntable.position.set(0, 0, -24);
+        const disc = new THREE.Mesh(
+          new THREE.CylinderGeometry(3.6, 3.9, 0.2, 32),
+          new THREE.MeshStandardMaterial({ color: '#1b1030', metalness: 0.8, roughness: 0.2 })
+        );
+        disc.position.y = 0.1;
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(3.75, 0.06, 10, 48),
+          new THREE.MeshBasicMaterial({ color: '#f59e0b' })
+        );
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 0.21;
+        this.turntable.add(disc, ring);
+        this.scene.add(this.turntable);
+
+        this.showcaseCarId = '';
+        this.showcaseRig = null;
+      }
+
+      syncShowcaseCar(spec) {
+        if (this.showcaseCarId === spec.id && this.showcaseRig) return;
+        if (this.showcaseRig) this.turntable.remove(this.showcaseRig.root);
+        this.showcaseRig = buildCarRig(spec);
+        this.showcaseRig.root.position.set(0, 0.2, 0);
+        this.turntable.add(this.showcaseRig.root);
+        this.showcaseCarId = spec.id;
+      }
+
+      renderFrame(dt, { screen, selectedCar, racers, trackLength, countdownStep, shakeOn, fovOn, timeSec }) {
+        this.finishGroup.position.set(0, 0, trackLength);
+
+        // Update Christmas Tree Lights
+        this.treeBulbMats[0].color.set(countdownStep === 3 ? '#f59e0b' : '#33244a');
+        this.treeBulbMats[1].color.set(countdownStep === 2 ? '#f59e0b' : '#33244a');
+        this.treeBulbMats[2].color.set(countdownStep === 1 ? '#f59e0b' : '#33244a');
+        this.treeBulbMats[3].color.set(countdownStep === 0 ? '#10b981' : '#33244a');
+
+        if (screen === 'GARAGE') {
+          this.turntable.visible = true;
+          this.raceRigs.forEach((r) => (r.root.visible = false));
+          this.syncShowcaseCar(selectedCar);
+          this.turntable.rotation.y += dt * 0.5;
+          if (this.showcaseRig) {
+            this.showcaseRig.wheels.forEach((w) => (w.rotation.x += dt * 2.5));
+          }
+
+          const desiredPos = new THREE.Vector3(0, 2.35, -17.2);
+          const desiredLook = new THREE.Vector3(0, 1.0, -24);
+          this.camPos.lerp(desiredPos, Math.min(1, dt * 6));
+          this.camLook.lerp(desiredLook, Math.min(1, dt * 6));
+          this.camera.fov += (50 - this.camera.fov) * Math.min(1, dt * 5);
+          this.camera.updateProjectionMatrix();
+          this.camera.position.copy(this.camPos);
+          this.camera.lookAt(this.camLook);
+          this.followLight.position.set(0, 6, -21);
+        } else if (screen === 'MENU' || screen === 'LEVELS' || screen === 'SETTINGS') {
+          this.turntable.visible = false;
+          CARS.forEach((c, idx) => {
+            const rig = this.raceRigs.get(c.id);
+            if (!rig) return;
+            rig.root.visible = true;
+            rig.root.position.set(LANE_X[idx], 0, 0);
+            rig.bodyGroup.rotation.x = 0;
+            rig.flameLeft.visible = false;
+            rig.flameRight.visible = false;
+          });
+
+          const swayX = Math.sin(timeSec * 0.35) * 2.4;
+          const desiredPos = new THREE.Vector3(swayX, 3.65, -9.8);
+          const desiredLook = new THREE.Vector3(0, 1.8, 35);
+          this.camPos.lerp(desiredPos, Math.min(1, dt * 4));
+          this.camLook.lerp(desiredLook, Math.min(1, dt * 4));
+          this.camera.fov += (56 - this.camera.fov) * Math.min(1, dt * 5);
+          this.camera.updateProjectionMatrix();
+          this.camera.position.copy(this.camPos);
+          this.camera.lookAt(this.camLook);
+          this.followLight.position.set(0, 7, 4);
+        } else {
+          this.turntable.visible = false;
+          let playerRacer = null;
+
+          racers.forEach((r) => {
+            if (r.isPlayer) playerRacer = r;
+            const rig = this.raceRigs.get(r.carId);
+            if (!rig) return;
+            rig.root.visible = true;
+            rig.root.position.set(LANE_X[r.lane], 0, r.distance);
+            rig.bodyGroup.rotation.x = r.pitch;
+            rig.wheels.forEach((w) => (w.rotation.x = r.wheelAngle));
+            rig.flameLeft.visible = r.isBoosting;
+            rig.flameRight.visible = r.isBoosting;
+            if (r.isBoosting) {
+              const flick = 0.85 + Math.random() * 0.45;
+              rig.flameLeft.scale.set(1, 1, flick);
+              rig.flameRight.scale.set(1, 1, flick);
+            }
+          });
+
+          if (playerRacer) {
+            const px = LANE_X[playerRacer.lane];
+            const pz = playerRacer.distance;
+            const speedRatio = Math.min(1, playerRacer.speedKmh / 345);
+
+            const desiredPos = new THREE.Vector3(
+              px * 0.72,
+              3.35 + speedRatio * 0.42,
+              pz - (7.6 + speedRatio * 1.55)
+            );
+            const desiredLook = new THREE.Vector3(px * 0.5, 1.25, pz + 18 + speedRatio * 8);
+
+            this.camPos.lerp(desiredPos, Math.min(1, dt * 12));
+            this.camLook.lerp(desiredLook, Math.min(1, dt * 14));
+
+            if (shakeOn && speedRatio > 0.35) {
+              const mag = (speedRatio - 0.35) * 0.075;
+              this.camera.position.set(
+                this.camPos.x + (Math.random() - 0.5) * mag,
+                this.camPos.y + (Math.random() - 0.5) * mag,
+                this.camPos.z
+              );
+            } else {
+              this.camera.position.copy(this.camPos);
+            }
+
+            const targetFov = fovOn ? 58 + speedRatio * 15 : 58;
+            this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 6);
+            this.camera.updateProjectionMatrix();
+            this.camera.lookAt(this.camLook);
+
+            this.followLight.position.set(px, 7, pz + 5);
+            this.skyDome.position.z = pz;
+            this.sunDisc.position.z = pz + 1180;
+          }
+        }
+
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      _onResize() {
+        if (!this.container) return;
+        this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+      }
+    }
+
+    /* ========================================================================
+       7. MAIN GAME ORCHESTRATOR & UI CONTROLLER
+       ======================================================================== */
+    class TypeDriveGame {
+      constructor() {
+        this.world = new SunsetHighwayWorld(document.getElementById('canvas-container'));
+        this.audio = new AudioEngine();
+        this.typing = new TypingEngine();
+
+        this.screen = 'MENU';
+        this.racePhase = 'IDLE'; // IDLE | COUNTDOWN | ACTIVE | FINISHED | PAUSED
+        this.selectedCar = CARS[0];
+        this.selectedStage = STAGES[0];
+        this.bestRecords = {};
+
+        this.settings = {
+          volume: 0.65,
+          muted: false,
+          music: true,
+          shake: true,
+          fov: true
+        };
+
+        this.racers = [];
+        this.playerController = null;
+        this.aiRacers = [];
+        this.countdownStep = -1;
+        this.countdownTimers = [];
+        this.raceElapsed = 0;
+
+        this._buildGarageCards();
+        this._buildStageCards();
+        this._bindUIEvents();
+        this._syncMenuLabels();
+
+        this.lastTime = performance.now();
+        this._loop = this._loop.bind(this);
+        requestAnimationFrame(this._loop);
+      }
+
+      _syncMenuLabels() {
+        document.getElementById('menu-car-name').textContent = this.selectedCar.name;
+        document.getElementById('menu-stage-name').textContent = `STAGE 0${this.selectedStage.id} • ${this.selectedStage.length}M`;
+      }
+
+      _buildGarageCards() {
+        const grid = document.getElementById('garage-car-grid');
+        grid.innerHTML = '';
+
+        CARS.forEach((car) => {
+          const btn = document.createElement('button');
+          btn.dataset.carId = car.id;
+          btn.className = 'car-card btn-race p-4 rounded-2xl border text-left cursor-pointer sunset-glass';
+          btn.innerHTML = `
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="w-4 h-4 rounded-full border border-white/40" style="background-color:${car.primaryColor}"></span>
+              <span class="equipped-tag text-[10px] font-black px-2 py-0.5 rounded bg-amber-400 text-slate-950 ${car.id === this.selectedCar.id ? '' : 'hidden'}">EQUIPPED</span>
+            </div>
+            <div class="font-racing font-bold text-sm text-white truncate">${car.name}</div>
+            <div class="text-[11px] text-slate-300 truncate mt-0.5">${car.engineTag}</div>
+          `;
+          btn.addEventListener('click', () => {
+            this.audio.unlock();
+            this.selectedCar = car;
+            this._updateGarageSelection();
+            this._syncMenuLabels();
+          });
+          grid.appendChild(btn);
+        });
+        this._updateGarageSelection();
+      }
+
+      _updateGarageSelection() {
+        const c = this.selectedCar;
+        document.getElementById('garage-color-dot').style.backgroundColor = c.primaryColor;
+        document.getElementById('garage-engine-tag').textContent = c.engineTag;
+        document.getElementById('garage-car-title').textContent = c.name;
+        document.getElementById('garage-car-desc').textContent = c.desc;
+
+        document.getElementById('stat-speed-val').textContent = `${c.stats.speed}/100`;
+        document.getElementById('stat-speed-bar').style.width = `${c.stats.speed}%`;
+        document.getElementById('stat-accel-val').textContent = `${c.stats.accel}/100`;
+        document.getElementById('stat-accel-bar').style.width = `${c.stats.accel}%`;
+        document.getElementById('stat-gear-val').textContent = `${c.stats.gear}/100`;
+        document.getElementById('stat-gear-bar').style.width = `${c.stats.gear}%`;
+
+        document.querySelectorAll('.car-card').forEach((card) => {
+          const isSel = card.dataset.carId === c.id;
+          card.style.borderColor = isSel ? '#f59e0b' : 'rgba(251, 146, 60, 0.22)';
+          card.querySelector('.equipped-tag').classList.toggle('hidden', !isSel);
+        });
+      }
+
+      _buildStageCards() {
+        const grid = document.getElementById('levels-grid');
+        grid.innerHTML = '';
+
+        STAGES.forEach((st) => {
+          const rec = this.bestRecords[st.id];
+          const card = document.createElement('div');
+          card.className = 'sunset-glass rounded-2xl p-5 flex flex-col justify-between border border-amber-400/25 hover:border-amber-400/70 transition-all';
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-code text-xs font-bold text-fuchsia-300">STAGE 0${st.id}</span>
+                <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300">${st.difficulty}</span>
+              </div>
+              <h3 class="font-racing font-black text-xl text-white">${st.name}</h3>
+              <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">${st.desc}</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+              <div>
+                <span class="text-slate-400 block">STRIP / TARGET</span>
+                <span class="font-code font-bold text-white">${st.length}m • ${st.targetWpm} WPM</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 block">BEST RECORD</span>
+                <span class="font-code font-bold text-emerald-400">${rec ? `${rec.time.toFixed(2)}s (${rec.wpm} WPM)` : '--.--'}</span>
+              </div>
+            </div>
+            <button class="btn-stage-play btn-race mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-racing font-black text-xs tracking-wider uppercase cursor-pointer">
+              RACE STAGE 0${st.id} →
+            </button>
+          `;
+          card.querySelector('.btn-stage-play').addEventListener('click', () => {
+            this.audio.unlock();
+            this.selectedStage = st;
+            this._syncMenuLabels();
+            this.startRace();
+          });
+          grid.appendChild(card);
+        });
+      }
+
+      _setScreen(next) {
+        this.screen = next;
+        document.getElementById('screen-menu').classList.toggle('hidden', next !== 'MENU');
+        document.getElementById('screen-garage').classList.toggle('hidden', next !== 'GARAGE');
+        document.getElementById('screen-levels').classList.toggle('hidden', next !== 'LEVELS');
+        document.getElementById('screen-settings').classList.toggle('hidden', next !== 'SETTINGS');
+        document.getElementById('screen-hud').classList.toggle('hidden', next !== 'RACE');
+        document.getElementById('btn-pause-trigger').classList.toggle('hidden', next !== 'RACE');
+
+        if (next !== 'RACE') {
+          this.audio.stopEngine();
+          this.racePhase = 'IDLE';
+          document.getElementById('screen-pause').classList.add('hidden');
+          document.getElementById('screen-results').classList.add('hidden');
+        }
+      }
+
+      _bindUIEvents() {
+        document.getElementById('btn-play-race').addEventListener('click', () => {
+          this.audio.unlock();
+          this.startRace();
+        });
+        document.getElementById('btn-open-garage').addEventListener('click', () => {
+          this.audio.unlock();
+          this._setScreen('GARAGE');
+        });
+        document.getElementById('btn-garage-back').addEventListener('click', () => this._setScreen('MENU'));
+
+        document.getElementById('btn-open-levels').addEventListener('click', () => {
+          this.audio.unlock();
+          this._buildStageCards();
+          this._setScreen('LEVELS');
+        });
+        document.getElementById('btn-levels-back').addEventListener('click', () => this._setScreen('MENU'));
+
+        document.getElementById('btn-open-settings').addEventListener('click', () => {
+          this.audio.unlock();
+          this._setScreen('SETTINGS');
+        });
+        document.getElementById('btn-settings-close').addEventListener('click', () => this._setScreen('MENU'));
+
+        // Settings Controls
+        const volSlider = document.getElementById('set-vol-slider');
+        volSlider.addEventListener('input', () => {
+          this.audio.unlock();
+          const val = parseInt(volSlider.value, 10);
+          document.getElementById('set-vol-label').textContent = `${val}%`;
+          this.settings.volume = val / 100;
+          this.audio.setVolume(this.settings.volume);
+        });
+
+        document.getElementById('set-music-toggle').addEventListener('change', (e) => {
+          this.settings.music = e.target.checked;
+          this.audio.musicEnabled = e.target.checked;
+        });
+        document.getElementById('set-shake-toggle').addEventListener('change', (e) => {
+          this.settings.shake = e.target.checked;
+        });
+        document.getElementById('set-fov-toggle').addEventListener('change', (e) => {
+          this.settings.fov = e.target.checked;
+        });
+
+        // Global Mute Toggle
+        document.getElementById('btn-mute-toggle').addEventListener('click', () => {
+          this.audio.unlock();
+          this.settings.muted = !this.settings.muted;
+          this.audio.setMuted(this.settings.muted);
+          document.getElementById('icon-sound-on').classList.toggle('hidden', this.settings.muted);
+          document.getElementById('icon-sound-off').classList.toggle('hidden', !this.settings.muted);
+          document.getElementById('label-sound').textContent = this.settings.muted ? 'MUTED' : 'SOUND ON';
+        });
+
+        // Pause & Results Navigation
+        document.getElementById('btn-pause-trigger').addEventListener('click', () => this._togglePause());
+        document.getElementById('btn-pause-resume').addEventListener('click', () => this._togglePause(false));
+        document.getElementById('btn-pause-restart').addEventListener('click', () => this.startRace());
+        document.getElementById('btn-pause-menu').addEventListener('click', () => this._setScreen('MENU'));
+
+        document.getElementById('btn-res-again').addEventListener('click', () => this.startRace());
+        document.getElementById('btn-res-next').addEventListener('click', () => {
+          const nextIdx = Math.min(STAGES.length - 1, this.selectedStage.id);
+          this.selectedStage = STAGES[nextIdx];
+          this._syncMenuLabels();
+          this.startRace();
+        });
+        document.getElementById('btn-res-menu').addEventListener('click', () => this._setScreen('MENU'));
+
+        // Focus helper on typing deck click
+        document.getElementById('typing-deck').addEventListener('click', () => {
+          document.getElementById('typing-focus-input').focus();
+        });
+
+        // Keyboard Handler
+        window.addEventListener('keydown', (e) => {
+          if (this.screen !== 'RACE') return;
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            if (this.racePhase === 'ACTIVE' || this.racePhase === 'PAUSED') {
+              this._togglePause();
+            }
+            return;
+          }
+
+          if (e.key === ' ' || e.key === 'Backspace') {
+            e.preventDefault();
+          }
+
+          if (this.racePhase !== 'ACTIVE') return;
+
+          const now = performance.now();
+          const res = this.typing.handleKey(e.key, now);
+          const metrics = this.typing.getMetrics(now);
+          this._renderTypingUI(metrics);
+
+          if (res === 'CORRECT' || res === 'COMPLETE') {
+            this.audio.playKeyClick(metrics.streak);
+          } else if (res === 'ERROR') {
+            this.audio.playError();
+            const box = document.getElementById('typing-passage-box');
+            box.classList.remove('anim-shake');
+            void box.offsetWidth;
+            box.classList.add('anim-shake');
+          }
+        });
+      }
+
+      _togglePause(forceState) {
+        if (this.racePhase !== 'ACTIVE' && this.racePhase !== 'PAUSED') return;
+        const willPause = forceState !== undefined ? forceState : this.racePhase === 'ACTIVE';
+        this.racePhase = willPause ? 'PAUSED' : 'ACTIVE';
+        document.getElementById('screen-pause').classList.toggle('hidden', !willPause);
+        if (!willPause) {
+          this.lastTime = performance.now();
+        } else {
+          this.audio.updateEngine(1100, false, false);
+        }
+      }
+
+      startRace() {
+        this.countdownTimers.forEach((id) => clearTimeout(id));
+        this.countdownTimers = [];
+
+        const stage = this.selectedStage;
+        const pool = PASSAGES[stage.id] || PASSAGES[1];
+        const passage = pool[Math.floor(Math.random() * pool.length)];
+
+        this.typing.reset(passage);
+        this._renderTypingUI(this.typing.getMetrics(performance.now()));
+
+        // Randomize 4 lanes
+        const lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        this.playerController = new SentenceLockedPlayerController(this.selectedCar, stage.length);
+
+        const aiSpecs = CARS.filter((c) => c.id !== this.selectedCar.id);
+        const aiNames = ['RYOSUKE', 'DOMINIC', 'HAN_GT'];
+        this.aiRacers = aiSpecs.map((spec, idx) => {
+          return new AIRacer(`ai-${idx}`, aiNames[idx], spec, lanes[idx + 1], stage, (idx - 1) * 3.2);
+        });
+
+        this.racers = [
+          {
+            id: 'player',
+            name: 'YOU',
+            carId: this.selectedCar.id,
+            color: this.selectedCar.primaryColor,
+            isPlayer: true,
+            lane: lanes[0],
+            distance: 0,
+            speedKmh: 0,
+            rpm: 1100,
+            gear: 1,
+            pitch: 0,
+            wheelAngle: 0,
+            isBoosting: false,
+            finished: false,
+            finishTime: null,
+            rank: 1
+          },
+          ...this.aiRacers.map((ai, i) => ({
+            id: ai.id,
+            name: ai.name,
+            carId: ai.spec.id,
+            color: ai.spec.primaryColor,
+            isPlayer: false,
+            lane: ai.lane,
+            distance: 0,
+            speedKmh: 0,
+            rpm: 1100,
+            gear: 1,
+            pitch: 0,
+            wheelAngle: 0,
+            isBoosting: false,
+            finished: false,
+            finishTime: null,
+            rank: i + 2
+          }))
+        ];
+
+        this.raceElapsed = 0;
+        this._setScreen('RACE');
+        document.getElementById('screen-pause').classList.add('hidden');
+        document.getElementById('screen-results').classList.add('hidden');
+
+        this.racePhase = 'COUNTDOWN';
+        this.countdownStep = 3;
+        this._showCountdown('3', false);
+        this.audio.startEngine(this.selectedCar.engineType);
+        this.audio.playCountdown(false);
+
+        const t2 = setTimeout(() => {
+          if (this.screen !== 'RACE') return;
+          this.countdownStep = 2;
+          this._showCountdown('2', false);
+          this.audio.playCountdown(false);
+        }, 900);
+
+        const t1 = setTimeout(() => {
+          if (this.screen !== 'RACE') return;
+          this.countdownStep = 1;
+          this._showCountdown('1', false);
+          this.audio.playCountdown(false);
+        }, 1800);
+
+        const tGo = setTimeout(() => {
+          if (this.screen !== 'RACE') return;
+          this.countdownStep = 0;
+          this.racePhase = 'ACTIVE';
+          this._showCountdown('GO!', true);
+          this.audio.playCountdown(true);
+          document.getElementById('hud-typing-badge').textContent = 'TYPE TO ADVANCE!';
+        }, 2700);
+
+        const tClear = setTimeout(() => {
+          this.countdownStep = -1;
+          document.getElementById('hud-countdown-box').classList.add('hidden');
+        }, 3550);
+
+        this.countdownTimers.push(t2, t1, tGo, tClear);
+        this._updateRaceHUD();
+      }
+
+      _showCountdown(text, isGo) {
+        const box = document.getElementById('hud-countdown-box');
+        const label = document.getElementById('hud-countdown-text');
+        box.classList.remove('hidden');
+        label.textContent = text;
+        label.className = isGo
+          ? 'font-racing italic font-black text-8xl sm:text-9xl text-emerald-400 title-glow anim-pop'
+          : 'font-racing italic font-black text-8xl sm:text-9xl text-amber-400 title-glow anim-pop';
+      }
+
+      _renderTypingUI(metrics) {
+        const { passage, typedIndex, hasError, errorChar, wpm, accuracy, streak } = metrics;
+
+        document.getElementById('hud-wpm').textContent = wpm;
+        const accEl = document.getElementById('hud-acc');
+        accEl.textContent = `${accuracy}%`;
+        accEl.className = `font-code font-extrabold text-lg sm:text-xl ${
+          accuracy >= 95 ? 'text-emerald-400' : accuracy >= 85 ? 'text-amber-400' : 'text-rose-400'
+        }`;
+        document.getElementById('hud-char-count').textContent = `${typedIndex}/${passage.length}`;
+
+        const done = passage.slice(0, typedIndex);
+        const cur = passage[typedIndex] || '';
+        const rest = passage.slice(typedIndex + 1);
+
+        document.getElementById('passage-done').textContent = done;
+        const cursorEl = document.getElementById('passage-cursor');
+        cursorEl.textContent = cur === ' ' ? '\u00A0' : cur;
+
+        const box = document.getElementById('typing-passage-box');
+        const badge = document.getElementById('hud-typing-badge');
+
+        if (hasError) {
+          box.style.borderColor = 'rgba(244, 63, 94, 0.85)';
+          cursorEl.className = 'bg-rose-600 text-white underline decoration-2 decoration-white px-0.5 rounded font-bold';
+          badge.className = 'px-3 py-1 rounded-full bg-rose-500/25 border border-rose-500 text-rose-200 text-xs font-extrabold tracking-wider uppercase';
+          badge.textContent = `⌫ PRESS BACKSPACE TO FIX "${errorChar === ' ' ? 'SPACE' : errorChar}"`;
+        } else if (streak >= 15) {
+          box.style.borderColor = 'rgba(56, 189, 248, 0.75)';
+          cursorEl.className = 'bg-sky-400/35 text-sky-200 underline decoration-2 decoration-sky-400 px-0.5 rounded font-bold';
+          badge.className = 'px-3 py-1 rounded-full bg-sky-500/25 border border-sky-400 text-sky-200 text-xs font-extrabold tracking-wider uppercase';
+          badge.textContent = '⚡ NITRO OVERDRIVE ACTIVE!';
+        } else {
+          box.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+          cursorEl.className = 'bg-amber-400/35 text-amber-200 underline decoration-2 decoration-amber-400 px-0.5 rounded font-bold';
+          badge.className = 'px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-xs font-extrabold tracking-wider uppercase';
+          badge.textContent = this.racePhase === 'COUNTDOWN' ? 'TYPE ON GREEN TO ADVANCE' : 'SENTENCE LOCKED THROTTLE';
+        }
+
+        document.getElementById('passage-rest').textContent = rest;
+      }
+
+      _updateRaceHUD() {
+        const player = this.racers.find((r) => r.isPlayer);
+        if (!player) return;
+
+        const totalLen = this.selectedStage.length;
+        const completionPct = Math.min(100, Math.round(this.playerController.progress * 100));
+        const rem = Math.max(0, Math.round(totalLen - player.distance));
+
+        document.getElementById('hud-race-time').textContent = `${this.raceElapsed.toFixed(2)}s`;
+        document.getElementById('hud-progress-pct').textContent = `${completionPct}%`;
+        document.getElementById('hud-dist-rem').textContent = `${rem}m`;
+
+        // Circular Speedometer & RPM Arcs
+        const speedKmh = Math.round(player.speedKmh);
+        document.getElementById('hud-speed-val').textContent = speedKmh;
+        document.getElementById('hud-gear-badge').textContent = `G${player.gear}`;
+        document.getElementById('hud-rpm-val').textContent = `${(player.rpm / 1000).toFixed(1)}k`;
+
+        const speedDash = Math.min(1, speedKmh / 360) * 320.4;
+        const rpmDash = Math.min(1, Math.max(0, (player.rpm - 1000) / 7500)) * 254.5;
+        const speedArc = document.getElementById('gauge-speed-arc');
+        speedArc.setAttribute('stroke-dasharray', `${speedDash} 427.2`);
+        speedArc.setAttribute(
+          'stroke',
+          player.isBoosting ? '#38bdf8' : this.typing.hasError ? '#f43f5e' : '#f59e0b'
+        );
+        document.getElementById('gauge-rpm-arc').setAttribute('stroke-dasharray', `${rpmDash} 339.3`);
+
+        const statusEl = document.getElementById('hud-engine-status');
+        if (this.typing.hasError) {
+          statusEl.textContent = 'HALTED — FIX TYPO';
+          statusEl.className = 'w-full mt-1 text-center text-[10px] font-extrabold tracking-widest uppercase py-1 rounded-lg bg-rose-500/25 border border-rose-500/60 text-rose-200';
+        } else if (player.isBoosting) {
+          statusEl.textContent = '⚡ NITRO OVERDRIVE';
+          statusEl.className = 'w-full mt-1 text-center text-[10px] font-extrabold tracking-widest uppercase py-1 rounded-lg bg-sky-500/25 border border-sky-400/60 text-sky-200';
+        } else {
+          statusEl.textContent = this.racePhase === 'COUNTDOWN' ? 'STAGED AT LINE' : 'ON TRACK';
+          statusEl.className = 'w-full mt-1 text-center text-[10px] font-extrabold tracking-widest uppercase py-1 rounded-lg bg-white/5 border border-white/10 text-amber-200';
+        }
+
+        // Standings List
+        const sorted = [...this.racers].sort((a, b) => a.rank - b.rank);
+        const ordinals = ['1ST', '2ND', '3RD', '4TH'];
+        const listEl = document.getElementById('hud-standings-list');
+        listEl.innerHTML = sorted
+          .map(
+            (r, idx) => {
+              const rPct = Math.min(100, Math.round((r.distance / totalLen) * 100));
+              return `
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs ${
+            r.isPlayer
+              ? 'bg-amber-500/20 border-amber-400/70 text-white font-bold'
+              : 'bg-white/5 border-white/10 text-slate-300'
+          }">
+            <div class="flex items-center gap-2 truncate">
+              <span class="font-code font-black w-7 ${idx === 0 ? 'text-amber-400' : 'text-slate-400'}">${ordinals[idx]}</span>
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:${r.color}"></span>
+              <span class="truncate">${r.name}</span>
+            </div>
+            <span class="font-code text-[11px] text-slate-300">${rPct}%</span>
+          </div>
+        `;
+            }
+          )
+          .join('');
+
+        // Vertical Track Minimap Dots
+        this.racers.forEach((r) => {
+          const dot = document.getElementById(`map-dot-${r.lane}`);
+          if (!dot) return;
+          const bottomPct = Math.max(3, Math.min(96, (r.distance / totalLen) * 93 + 3));
+          dot.style.bottom = `${bottomPct}%`;
+          dot.style.backgroundColor = r.color;
+          dot.style.boxShadow = r.isPlayer ? '0 0 10px #ffffff' : 'none';
+          dot.style.border = r.isPlayer ? '2px solid #ffffff' : 'none';
+        });
+      }
+
+      _showResults(playerFinal, metrics) {
+        const rankTitles = [
+          '🏆 1ST PLACE VICTORY!',
+          '🥈 2ND PLACE PODIUM!',
+          '🥉 3RD PLACE FINISH!',
+          '4TH PLACE FINISH'
+        ];
+        const fTime = playerFinal.finishTime ?? this.raceElapsed;
+        document.getElementById('res-stage-badge').textContent = `STAGE 0${this.selectedStage.id} • ${this.selectedStage.name}`;
+        document.getElementById('res-rank-headline').textContent = rankTitles[playerFinal.rank - 1] || rankTitles[3];
+        document.getElementById('res-time').textContent = `${fTime.toFixed(2)}s`;
+        document.getElementById('res-wpm').textContent = metrics.wpm;
+        document.getElementById('res-peak-wpm').textContent = metrics.peakWpm;
+        document.getElementById('res-acc').textContent = `${metrics.accuracy}%`;
+        document.getElementById('res-chars').textContent = `100%`;
+        document.getElementById('res-speed').textContent = `${Math.round(this.playerController.peakSpeedKmh)} KM/H`;
+
+        const existing = this.bestRecords[this.selectedStage.id];
+        if (!existing || fTime < existing.time) {
+          this.bestRecords[this.selectedStage.id] = { time: fTime, wpm: metrics.wpm };
+        }
+
+        document.getElementById('screen-results').classList.remove('hidden');
+      }
+
+      _loop(now) {
+        requestAnimationFrame(this._loop);
+        const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+        this.lastTime = now;
+
+        if (this.screen === 'RACE' && this.racePhase === 'COUNTDOWN') {
+          this.audio.updateEngine(1350 + Math.sin(now * 0.015) * 240, false, false);
+        } else if (this.screen === 'RACE' && (this.racePhase === 'ACTIVE' || this.racePhase === 'FINISHED')) {
+          this.raceElapsed += dt;
+
+          const metrics = this.typing.getMetrics(now);
+          const wasFinished = this.playerController.finished;
+
+          this.playerController.update(dt, metrics, this.raceElapsed, () => {
+            this.audio.playShift();
+          });
+
+          this.aiRacers.forEach((ai) => {
+            ai.update(dt, this.raceElapsed, metrics.passage.length, this.playerController.progress);
+          });
+
+          // Sync Telemetry
+          this.racers.forEach((r) => {
+            const ctrl = r.isPlayer ? this.playerController : this.aiRacers.find((a) => a.id === r.id);
+            r.distance = ctrl.distance;
+            r.speedKmh = ctrl.speedMs * 3.6;
+            r.rpm = ctrl.rpm;
+            r.gear = ctrl.gear;
+            r.pitch = ctrl.pitch;
+            r.wheelAngle = ctrl.wheelAngle;
+            r.isBoosting = ctrl.isBoosting;
+            r.finished = ctrl.finished;
+            r.finishTime = ctrl.finishTime;
+          });
+
+          // Compute Dynamic 1st..4th Standings
+          const sorted = [...this.racers].sort((a, b) => {
+            if (a.finished && b.finished) return (a.finishTime ?? 0) - (b.finishTime ?? 0);
+            if (a.finished) return -1;
+            if (b.finished) return 1;
+            return b.distance - a.distance;
+          });
+          sorted.forEach((item, idx) => {
+            const target = this.racers.find((x) => x.id === item.id);
+            if (target) target.rank = idx + 1;
+          });
+
+          this.audio.updateEngine(
+            this.playerController.rpm,
+            metrics.isAccelerating || metrics.isSentenceComplete,
+            this.playerController.isBoosting
+          );
+
+          if (!wasFinished && this.playerController.finished && this.racePhase === 'ACTIVE') {
+            this.racePhase = 'FINISHED';
+            const playerFinal = this.racers.find((r) => r.isPlayer);
+            this.audio.playFanfare(playerFinal.rank === 1);
+            this._showResults(playerFinal, metrics);
+          }
+
+          this._renderTypingUI(metrics);
+          this._updateRaceHUD();
+        }
+
+        this.world.renderFrame(dt, {
+          screen: this.screen,
+          selectedCar: this.selectedCar,
+          racers: this.racers,
+          trackLength: this.selectedStage.length,
+          countdownStep: this.countdownStep,
+          shakeOn: this.settings.shake,
+          fovOn: this.settings.fov,
+          timeSec: now / 1000
+        });
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.__typeDriveGame = new TypeDriveGame();
+    });
+  </script>
+</body>
+</html>
